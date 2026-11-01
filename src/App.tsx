@@ -72,6 +72,9 @@ export function App() {
   const [assumptions, setAssumptions] = useState<string[]>([])
   const [code, setCode] = useState(() => store.get('code') ?? '')
   const [codeInput, setCodeInput] = useState('')
+  /** Phones show one panel at a time; tablets slide the word bank in as a drawer. */
+  const [panel, setPanel] = useState<'notebook' | 'play' | 'words'>('notebook')
+  const [bankOpen, setBankOpen] = useState(false)
   /** A visitor's own Meta API key. Kept only in this browser. */
   const [ownKey, setOwnKey] = useState(() => store.get('ownkey') ?? '')
   const [ownKeyInput, setOwnKeyInput] = useState('')
@@ -469,11 +472,28 @@ export function App() {
         </div>
       )}
 
-      <main className="workspace">
-        <div className="left">
+      <main className={`workspace show-${panel}`}>
+        <aside className={`bank-col${bankOpen ? ' open' : ''}`} aria-label="Word bank">
+          <WordBank
+            onPick={(snippet) => {
+              pick(snippet)
+              setBankOpen(false)
+              setPanel('notebook')
+            }}
+            onClose={() => setBankOpen(false)}
+          />
+        </aside>
+        {bankOpen && <div className="bank-scrim" onClick={() => setBankOpen(false)} aria-hidden />}
+
+        <div className="notebook-col">
           <section className="notebook" aria-labelledby="notebook-title">
             <div className="notebook-head">
-              <h2 id="notebook-title">My game</h2>
+              <div className="notebook-title-row">
+                <h2 id="notebook-title">My game</h2>
+                <button className="tool bank-toggle" onClick={() => setBankOpen((o) => !o)} aria-expanded={bankOpen}>
+                  Word bank
+                </button>
+              </div>
               <p>
                 Write it your way. Lines in <span className="pencil-word">pencil</span> are your own words — they get tidied into
                 steps when you press Play.
@@ -493,6 +513,22 @@ export function App() {
                     Show me
                   </button>
                 )}
+              </div>
+            )}
+            {(assumptions.length > 0 || note) && (
+              <div className="notes">
+                {assumptions.length > 0 && (
+                  <div className="sticky guess">
+                    <strong>I guessed</strong>
+                    <ul>
+                      {assumptions.map((a) => (
+                        <li key={a}>{a}</li>
+                      ))}
+                    </ul>
+                    <span className="sticky-foot">Change any of these in your game.</span>
+                  </div>
+                )}
+                {note && <div className="sticky info">{note}</div>}
               </div>
             )}
             <div className="notebook-body">
@@ -521,24 +557,18 @@ export function App() {
                 </div>
               )}
             </div>
-            {(assumptions.length > 0 || note) && (
-              <div className="notes">
-                {assumptions.length > 0 && (
-                  <div className="sticky guess">
-                    <strong>I guessed</strong>
-                    <ul>
-                      {assumptions.map((a) => (
-                        <li key={a}>{a}</li>
-                      ))}
-                    </ul>
-                    <span className="sticky-foot">Change any of these in your game.</span>
-                  </div>
-                )}
-                {note && <div className="sticky info">{note}</div>}
-              </div>
-            )}
+            <button
+              className="mobile-play"
+              onClick={() => {
+                setPanel('play')
+                tidyAndRun()
+              }}
+              disabled={busy}
+            >
+              {needsTidy ? <NibIcon size={24} /> : <PlayIcon size={22} />}
+              {needsTidy ? 'Tidy & play' : 'Play my game'}
+            </button>
           </section>
-          <WordBank onPick={pick} />
         </div>
 
         <section className="console" aria-label="Game console">
@@ -609,6 +639,21 @@ export function App() {
           )}
         </section>
       </main>
+
+      <nav className="tabbar" aria-label="Switch view">
+        {(
+          [
+            ['notebook', 'Notebook'],
+            ['play', 'Play'],
+            ['words', 'Word bank'],
+          ] as const
+        ).map(([id, label]) => (
+          <button key={id} className={panel === id ? 'on' : ''} aria-pressed={panel === id} onClick={() => setPanel(id)}>
+            {label}
+            {id === 'notebook' && (firstError || problem) && <span className="tab-dot" aria-label="needs fixing" />}
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }

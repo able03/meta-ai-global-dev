@@ -56,10 +56,17 @@ const GROUPS: { name: string; words: Word[] }[] = [
   },
 ]
 
-export function WordBank({ onPick }: { onPick(snippet: string): void }) {
+export function WordBank({ onPick, onClose }: { onPick(snippet: string): void; onClose?(): void }) {
   return (
     <section className="word-bank" aria-labelledby="word-bank-title">
-      <h2 id="word-bank-title">Word bank</h2>
+      <div className="word-bank-head">
+        <h2 id="word-bank-title">Word bank</h2>
+        {onClose && (
+          <button className="tool bank-close" onClick={onClose}>
+            Close
+          </button>
+        )}
+      </div>
       <p className="word-bank-help">Tap a sticker to write it into your game.</p>
       <div className="word-groups">
         {GROUPS.map((g) => (
