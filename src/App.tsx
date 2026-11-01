@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Doodles } from './components/Doodles'
 import { StepsEditor } from './components/StepsEditor'
+import { WordBank } from './components/WordBank'
 import { STAGE } from './lang/ast'
 import { parse } from './lang/parser'
 import { autocorrect, cacheKey, changedLines, messyLines } from './lang/tidy'
@@ -55,11 +57,16 @@ const localCache = {
 const KEY_MAP: Record<string, string> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', ' ': 'space', Enter: 'enter' }
 const toKey = (e: KeyboardEvent) => KEY_MAP[e.key] ?? (e.key.length === 1 ? e.key.toLowerCase() : null)
 
-const STARTER = 'a red ball that bounces around the screen'
+const IDEAS = [
+  'a red ball that bounces around the screen',
+  'a cat that catches falling fish when I press the arrow keys',
+  'pick a secret number and let me guess it',
+]
 
 export function App() {
-  const [steps, setSteps] = useState(() => store.get('steps') ?? STARTER)
+  const [steps, setSteps] = useState(() => store.get('steps') ?? '')
   const [glow, setGlow] = useState<Set<number>>(new Set())
+  const [glowRun, setGlowRun] = useState(0)
   const [assumptions, setAssumptions] = useState<string[]>([])
   const [code, setCode] = useState(() => store.get('code') ?? '')
   const [codeInput, setCodeInput] = useState('')
@@ -76,6 +83,13 @@ export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const engineRef = useRef<Engine | null>(null)
   const consoleRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  /** Swipes the highlighter over these lines. */
+  const mark = (lines: number[]) => {
+    setGlow(new Set(lines))
+    setGlowRun((r) => r + 1)
+  }
 
   const parsed = useMemo(() => parse(steps), [steps])
   const messy = useMemo(() => new Set(messyLines(steps)), [steps])
@@ -172,7 +186,7 @@ export function App() {
   const applyTidy = (before: string, result: Tidied, how: string) => {
     setSteps(result.steps)
     setAssumptions(result.assumptions)
-    setGlow(new Set(changedLines(before, result.steps)))
+    mark(changedLines(before, result.steps))
     setNote(how)
     start(result.steps)
   }
@@ -183,7 +197,7 @@ export function App() {
     const source = fixed.source
     if (fixed.fixes.length) {
       setSteps(source)
-      setGlow(new Set(fixed.fixes.map((f) => f.line)))
+      mark(fixed.fixes.map((f) => f.line))
     }
     if (!messyLines(source).length) {
       if (fixed.fixes.length) setNote(`Fixed ${fixed.fixes.map((f) => `“${f.from}” → “${f.to}”`).join(', ')}`)
@@ -274,126 +288,193 @@ export function App() {
     URL.revokeObjectURL(a.href)
   }
 
+  const pick = (snippet: string) => {
+    const el = inputRef.current
+    const at = el ? el.selectionEnd : steps.length
+    const lineEnd = steps.indexOf('\n', at) === -1 ? steps.length : steps.indexOf('\n', at)
+    const before = steps.slice(0, lineEnd)
+    const lineStart = before.lastIndexOf('\n') + 1
+    const currentLineEmpty = before.slice(lineStart).trim() === ''
+    const insert = currentLineEmpty ? snippet : `\n${snippet}`
+    const from = currentLineEmpty ? lineStart : lineEnd
+    const next = steps.slice(0, from) + insert + steps.slice(currentLineEmpty ? lineEnd : lineEnd)
+    setSteps(next)
+    const firstNew = next.slice(0, from + (currentLineEmpty ? 0 : 1)).split('\n').length
+    mark(snippet.split('\n').map((_, i) => firstNew + i))
+    requestAnimationFrame(() => {
+      el?.focus()
+      const caret = from + insert.length
+      el?.setSelectionRange(caret, caret)
+    })
+  }
+
   const needsTidy = messy.size > 0
   const firstError = runError ?? (needsTidy ? null : parsed.errors[0] ?? null)
+  const empty = !steps.trim()
 
   return (
-    <div className="app">
+    <div className="desk">
+      <Doodles />
       <header className="top">
-        <div className="brand">
-          <span className="logo">Sayntax</span>
-          <span className="tagline">Say a game. Play it.</span>
-        </div>
-        <div className="top-actions">
-          <select aria-label="Open an example" value="" onChange={(e) => e.target.value && loadSteps(EXAMPLES[e.target.value])}>
-            <option value="">Examples…</option>
+        <h1 className="brand">
+          <span className="brand-name">Sayntax</span>
+          <span className="brand-line">Say a game. Play it.</span>
+        </h1>
+        <nav className="top-actions" aria-label="Game files">
+          <select aria-label="Open an example game" value="" onChange={(e) => e.target.value && loadSteps(EXAMPLES[e.target.value])}>
+            <option value="">Example games</option>
             {Object.keys(EXAMPLES).map((p) => (
               <option key={p} value={p}>
                 {exampleName(p)}
               </option>
             ))}
           </select>
-          <label className="btn ghost">
+          <label className="tool">
             Open
             <input type="file" accept=".say,.txt" hidden onChange={(e) => e.target.files?.[0]?.text().then(loadSteps)} />
           </label>
-          <button className="btn ghost" onClick={download}>
+          <button className="tool" onClick={download}>
             Save
           </button>
-          <button className={`btn ghost ${code ? 'unlocked' : ''}`} onClick={() => setShowCode((s) => !s)}>
-            {code ? '🔓 AI on' : '🔒 Access code'}
+          <button className={`tool key ${code ? 'on' : ''}`} onClick={() => setShowCode((s) => !s)} aria-expanded={showCode}>
+            {code ? '🔑 AI unlocked' : '🔑 Unlock AI'}
           </button>
-        </div>
+        </nav>
       </header>
 
       {showCode && (
-        <form className="code-bar" onSubmit={saveCode}>
-          <span>New words need the AI and an access code. Steps — and anything said before — always run free.</span>
-          <input value={codeInput} onChange={(e) => setCodeInput(e.target.value)} placeholder="Access code" aria-label="Access code" />
-          <button className="btn" type="submit">
-            Unlock
-          </button>
-          {code && (
-            <button
-              className="btn ghost"
-              type="button"
-              onClick={() => {
-                setCode('')
-                store.set('code', '')
-              }}
-            >
-              Forget code
+        <form className="key-card" onSubmit={saveCode}>
+          <p>
+            Your own words get tidied by Meta AI, and that needs a code. Steps from the word bank, example games, and anything
+            someone already said run free.
+          </p>
+          <div className="key-row">
+            <input value={codeInput} onChange={(e) => setCodeInput(e.target.value)} placeholder="Type your code" aria-label="Access code" />
+            <button className="tool solid" type="submit">
+              Unlock
             </button>
-          )}
+            {code && (
+              <button
+                className="tool"
+                type="button"
+                onClick={() => {
+                  setCode('')
+                  store.set('code', '')
+                }}
+              >
+                Lock again
+              </button>
+            )}
+          </div>
         </form>
       )}
 
       <main className="workspace">
-        <section className="panel editor-panel">
-          <div className="panel-head">
-            <h2>Your game</h2>
-            <span className="muted small">Write it your way. Lines with ✨ get tidied when you press play.</span>
-          </div>
-          <StepsEditor
-            value={steps}
-            onChange={(v) => {
-              setSteps(v)
-              setRunError(null)
-              setGlow(new Set())
-            }}
-            highlighted={glow}
-            messyLines={messy}
-            errorLines={errorLines}
-          />
-          {firstError && (
-            <div className="error-box" role="alert">
-              <strong>Line {firstError.line}:</strong> {firstError.message}
+        <div className="left">
+          <section className="notebook" aria-labelledby="notebook-title">
+            <div className="notebook-head">
+              <h2 id="notebook-title">My game</h2>
+              <p>
+                Write it your way. Lines in <span className="pencil-word">pencil</span> are your own words — they get tidied into
+                steps when you press Play.
+              </p>
             </div>
-          )}
-          {assumptions.length > 0 && (
-            <div className="assumptions">
-              <span className="label">I guessed:</span>
-              {assumptions.map((a) => (
-                <span key={a} className="chip">
-                  {a}
-                </span>
-              ))}
-              <span className="muted small">Change any of these in your game.</span>
+            <div className="notebook-body">
+              <StepsEditor
+                value={steps}
+                onChange={(v) => {
+                  setSteps(v)
+                  setRunError(null)
+                  setGlow(new Set())
+                }}
+                highlighted={glow}
+                highlightRun={glowRun}
+                messyLines={messy}
+                errorLines={errorLines}
+                inputRef={inputRef}
+              />
+              {empty && (
+                <div className="try-saying">
+                  <p>Try writing…</p>
+                  {IDEAS.map((idea) => (
+                    <button key={idea} className="idea" onClick={() => setSteps(idea)}>
+                      “{idea}”
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-          {note && <div className="note">{note}</div>}
-        </section>
+            {(firstError || assumptions.length > 0 || note) && (
+              <div className="notes">
+                {firstError && (
+                  <div className="sticky error" role="alert">
+                    <strong>Line {firstError.line}</strong>
+                    {firstError.message}
+                  </div>
+                )}
+                {assumptions.length > 0 && (
+                  <div className="sticky guess">
+                    <strong>I guessed</strong>
+                    <ul>
+                      {assumptions.map((a) => (
+                        <li key={a}>{a}</li>
+                      ))}
+                    </ul>
+                    <span className="sticky-foot">Change any of these in your game.</span>
+                  </div>
+                )}
+                {note && <div className="sticky info">{note}</div>}
+              </div>
+            )}
+          </section>
+          <WordBank onPick={pick} />
+        </div>
 
-        <section className="panel stage-panel">
-          <div className="stage-controls">
-            <button className="btn primary big" onClick={tidyAndRun} disabled={busy}>
-              {busy ? 'Thinking…' : needsTidy ? '✨ Tidy & Play' : '▶ Play'}
-            </button>
-            <button className="btn" onClick={stop} disabled={!running}>
-              ■ Stop
-            </button>
-            <span className="muted small">{running ? 'Playing — use the arrow keys, space and the mouse.' : ''}</span>
+        <section className="console" aria-label="Game console">
+          <div className="screen-frame">
+            <canvas
+              ref={canvasRef}
+              className="screen"
+              width={STAGE.width}
+              height={STAGE.height}
+              tabIndex={0}
+              onClick={onCanvasClick}
+              aria-label="Screen where your game plays"
+            />
+            {!running && !busy && <div className="screen-hint">{needsTidy ? 'Press ✨ to tidy and play' : 'Press ▶ to play'}</div>}
+            {busy && <div className="screen-hint thinking">Tidying your words…</div>}
           </div>
-          <canvas
-            ref={canvasRef}
-            className="stage"
-            width={STAGE.width}
-            height={STAGE.height}
-            tabIndex={0}
-            onClick={onCanvasClick}
-            aria-label="Stage where your game runs"
-          />
-          <div className="console" ref={consoleRef} aria-live="polite">
-            {output.length === 0 && !question && <span className="muted">Messages from “say” show up here.</span>}
+
+          <div className="controls">
+            <div className="dpad" aria-hidden>
+              <span />
+            </div>
+            <button className={`play-button${needsTidy ? ' tidy' : ''}`} onClick={tidyAndRun} disabled={busy} aria-label={needsTidy ? 'Tidy and play' : 'Play'}>
+              {busy ? '…' : needsTidy ? '✨' : '▶'}
+            </button>
+            <div className="play-label">{busy ? 'Thinking' : needsTidy ? 'Tidy & play' : running ? 'Play again' : 'Play'}</div>
+            <button className="stop-button" onClick={stop} disabled={!running}>
+              Stop
+            </button>
+          </div>
+
+          <p className="console-help">{running ? 'Use the arrow keys, space and your mouse.' : ' '}</p>
+
+          <div className="speech" ref={consoleRef} aria-live="polite">
+            {output.length === 0 && !question && <p className="speech-empty">Words from “say” pop up here.</p>}
             {output.map((line, i) => (
-              <div key={i}>{line}</div>
+              <div key={i} className={line.startsWith('› ') ? 'bubble me' : 'bubble'}>
+                {line.startsWith('› ') ? line.slice(2) : line}
+              </div>
             ))}
           </div>
           {question !== null && (
-            <form className="ask-bar" onSubmit={submitAnswer}>
+            <form className="ask" onSubmit={submitAnswer}>
               <label htmlFor="answer">{question}</label>
-              <input id="answer" value={answer} onChange={(e) => setAnswer(e.target.value)} autoFocus autoComplete="off" />
-              <button className="btn primary">Answer</button>
+              <div className="ask-row">
+                <input id="answer" value={answer} onChange={(e) => setAnswer(e.target.value)} autoFocus autoComplete="off" />
+                <button className="tool solid">Answer</button>
+              </div>
             </form>
           )}
         </section>
