@@ -177,16 +177,23 @@ export function App() {
 
   const start = useCallback((source: string) => {
     const { program } = parse(source)
-    engineRef.current?.stop()
+    // Swap out the old game first, so its "stopped" can't stop the music for the new one.
+    const previous = engineRef.current
+    engineRef.current = null
+    previous?.stop()
     setOutput([])
     setRunError(null)
     setQuestion(null)
-    if (!program) return
+    if (!program) {
+      audio.stopMusic()
+      return
+    }
     const engine = new Engine(program, {
       say: (text) => setOutput((o) => [...o.slice(-199), text]),
       ask: (prompt) => setQuestion(prompt),
       error: (err) => setRunError(err),
       stopped: () => {
+        if (engineRef.current !== engine) return // an old game being replaced: keep the song going
         audio.stopMusic()
         setRunning(false)
         setQuestion(null)

@@ -24,6 +24,7 @@ const freq = (midi: number) => 440 * Math.pow(2, (midi - 69) / 12)
 class RetroAudio {
   private ctx: AudioContext | null = null
   private master: GainNode | null = null
+  private music: GainNode | null = null
   private noise: AudioBuffer | null = null
   private timer: number | null = null
   private nextTime = 0
@@ -56,9 +57,13 @@ class RetroAudio {
   // ---------------------------------------------------------------------------
   // Music
 
+  /** Starts the song. Does nothing if it's already playing, so it can never play twice at once. */
   startMusic(): void {
     const ctx = this.ensure()
     if (!ctx || this.timer !== null) return
+    // Each run gets its own volume channel, so stopping can silence notes already queued.
+    this.music = ctx.createGain()
+    this.music.connect(this.master!)
     this.step = 0
     this.nextTime = ctx.currentTime + 0.08
     this.timer = window.setInterval(() => this.schedule(), 25)
@@ -67,6 +72,19 @@ class RetroAudio {
   stopMusic(): void {
     if (this.timer !== null) window.clearInterval(this.timer)
     this.timer = null
+    const bus = this.music
+    this.music = null
+    if (bus && this.ctx) {
+      bus.gain.setValueAtTime(0, this.ctx.currentTime) // cut notes that were scheduled ahead
+      window.setTimeout(() => bus.disconnect(), 300)
+    }
+  }
+
+  /** Stops everything and releases the audio device. */
+  dispose(): void {
+    this.stopMusic()
+    void this.ctx?.close()
+    this.ctx = null
   }
 
   get musicPlaying(): boolean {
@@ -76,18 +94,21 @@ class RetroAudio {
   /** Schedules notes a little ahead of time so the beat stays steady. */
   private schedule(): void {
     const ctx = this.ctx
-    if (!ctx) return
+    const bus = this.music
+    if (!ctx || !bus) return
+    // A background tab can pause the timer; skip the missed notes instead of playing them all at once.
+    if (this.nextTime < ctx.currentTime) this.nextTime = ctx.currentTime + 0.02
     while (this.nextTime < ctx.currentTime + 0.12) {
       const bar = Math.floor(this.step / 8) % MELODY.length
       const beat = this.step % 8
       const t = this.nextTime
       const note = MELODY[bar][beat]
-      if (note !== null) this.tone(freq(note), t, EIGHTH * 0.85, 'square', 0.32)
+      if (note !== null) this.tone(freq(note), t, EIGHTH * 0.85, 'square', 0.32, bus)
       const root = BASS_ROOTS[bar]
-      this.tone(freq(beat % 2 ? root + 12 : root), t, EIGHTH * 0.9, 'triangle', 0.55)
-      if (beat % 4 === 0) this.kick(t)
-      if (beat % 4 === 2) this.hiss(t, 0.12, 0.35, 1800)
-      this.hiss(t, 0.03, 0.12, 7000)
+      this.tone(freq(beat % 2 ? root + 12 : root), t, EIGHTH * 0.9, 'triangle', 0.55, bus)
+      if (beat % 4 === 0) this.sweep(150, 45, t, 0.14, 'sine', 0.9, bus)
+      if (beat % 4 === 2) this.hiss(t, 0.12, 0.35, 1800, bus)
+      this.hiss(t, 0.03, 0.12, 7000, bus)
       this.nextTime += EIGHTH
       this.step++
     }
@@ -135,7 +156,7 @@ class RetroAudio {
   // ---------------------------------------------------------------------------
   // Building blocks
 
-  private tone(hz: number, at: number, dur: number, wave: Wave, vol: number): void {
+  private tone(hz: number, at: number, dur: number, wave: Wave, vol: number, out?: AudioNode): void {
     const ctx = this.ctx!
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
@@ -143,12 +164,12 @@ class RetroAudio {
     osc.frequency.setValueAtTime(hz, at)
     gain.gain.setValueAtTime(vol, at)
     gain.gain.exponentialRampToValueAtTime(0.001, at + dur)
-    osc.connect(gain).connect(this.master!)
+    osc.connect(gain).connect(out ?? this.master!)
     osc.start(at)
     osc.stop(at + dur + 0.02)
   }
 
-  private sweep(from: number, to: number, at: number, dur: number, wave: Wave, vol: number): void {
+  private sweep(from: number, to: number, at: number, dur: number, wave: Wave, vol: number, out?: AudioNode): void {
     const ctx = this.ctx!
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
@@ -157,16 +178,12 @@ class RetroAudio {
     osc.frequency.exponentialRampToValueAtTime(Math.max(20, to), at + dur)
     gain.gain.setValueAtTime(vol, at)
     gain.gain.exponentialRampToValueAtTime(0.001, at + dur)
-    osc.connect(gain).connect(this.master!)
+    osc.connect(gain).connect(out ?? this.master!)
     osc.start(at)
     osc.stop(at + dur + 0.02)
   }
 
-  private kick(at: number): void {
-    this.sweep(150, 45, at, 0.14, 'sine', 0.9)
-  }
-
-  private hiss(at: number, dur: number, vol: number, cutoff: number): void {
+  private hiss(at: number, dur: number, vol: number, cutoff: number, out?: AudioNode): void {
     const ctx = this.ctx!
     const src = ctx.createBufferSource()
     src.buffer = this.noise
@@ -176,10 +193,16 @@ class RetroAudio {
     const gain = ctx.createGain()
     gain.gain.setValueAtTime(vol, at)
     gain.gain.exponentialRampToValueAtTime(0.001, at + dur)
-    src.connect(filter).connect(gain).connect(this.master!)
+    src.connect(filter).connect(gain).connect(out ?? this.master!)
     src.start(at)
     src.stop(at + dur + 0.02)
   }
 }
 
-export const audio = new RetroAudio()
+// One player for the whole page — even when the dev server hot-reloads this file —
+// so the song can never be playing twice.
+const holder = globalThis as typeof globalThis & { __sayntaxAudio?: RetroAudio }
+holder.__sayntaxAudio?.dispose()
+export const audio = (holder.__sayntaxAudio = new RetroAudio())
+
+import.meta.hot?.dispose(() => audio.dispose())
