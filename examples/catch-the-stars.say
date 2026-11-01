@@ -1,0 +1,15 @@
+# Catch the falling stars with the basket.
+basket is a 🧺 at bottom center, size 60
+⭐ falls 3
+score is 0
+
+every 1 second:
+    make a ⭐ at random x, top
+
+when left key is pressed: move basket left 10
+when right key is pressed: move basket right 10
+
+when basket touches ⭐:
+    add 1 to score
+    remove that ⭐
+    say "Score: {score}"

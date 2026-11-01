@@ -1,0 +1,13 @@
+# Guess the secret number.
+secret is random 1 to 10
+say "I'm thinking of a number from 1 to 10."
+
+forever:
+    ask "Your guess?" into guess
+    if guess is secret:
+        say "You got it! 🎉"
+        stop
+    otherwise if guess is less than secret:
+        say "Higher!"
+    otherwise:
+        say "Lower!"

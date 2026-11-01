@@ -1,0 +1,4 @@
+# A ball that bounces around the screen.
+ball is a red circle at center, size 40
+ball moves down-right 5
+ball bounces
