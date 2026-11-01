@@ -505,3 +505,36 @@ textarea {
   border-radius: 8px;
   background: var(--panel);
 }
+
+/* Single-editor layout ------------------------------------------------------ */
+
+.panel-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.editor-panel .steps-editor {
+  height: 420px;
+}
+
+.steps-backdrop .row.messy {
+  background: var(--accent-soft);
+}
+
+.note {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  font-size: 14px;
+}
+
+.btn.big {
+  padding: 9px 20px;
+  font-size: 16px;
+}
