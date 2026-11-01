@@ -839,7 +839,7 @@ function openIf(out: Stmt[], elseIfs: WeakSet<Stmt>): Stmt {
   let s = out[out.length - 1]
   if (!s || s.k !== 'if') return fail('"otherwise" needs an "if" right above it.')
   while (s.k === 'if' && s.otherwise) {
-    const only = s.otherwise.length === 1 ? s.otherwise[0] : null
+    const only: Stmt | null = s.otherwise.length === 1 ? s.otherwise[0] : null
     if (only && elseIfs.has(only)) s = only
     else return fail('This "if" already has an "otherwise".')
   }
