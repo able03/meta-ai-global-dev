@@ -20,6 +20,23 @@ interface Tidied {
 const EXAMPLES = import.meta.glob('../examples/*.say', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
 const exampleName = (path: string) => path.split('/').pop()!.replace('.say', '').replace(/-/g, ' ')
 
+/** "Dragon Snack Time!" → "dragon-snack-time" (safe on every computer). */
+const fileSlug = (name: string) =>
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'my-game'
+
+/** "dragon-snack-time.say" → "dragon snack time" */
+const nameFromFile = (file: string) =>
+  file
+    .replace(/\.(say|txt)$/i, '')
+    .replace(/[-_]+/g, ' ')
+    .trim()
+    .slice(0, 40)
+
 const store = {
   get(key: string): string | null {
     try {
@@ -80,6 +97,7 @@ const IDEAS = [
 
 export function App() {
   const [steps, setSteps] = useState(() => store.get('steps') ?? '')
+  const [gameName, setGameName] = useState(() => store.get('name') || 'My game')
   const [glow, setGlow] = useState<Set<number>>(new Set())
   const [glowRun, setGlowRun] = useState(0)
   const [assumptions, setAssumptions] = useState<string[]>([])
@@ -145,6 +163,7 @@ export function App() {
   const errorLines = useMemo(() => (runError ? new Set([runError.line]) : new Set<number>()), [runError])
 
   useEffect(() => store.set('steps', steps), [steps])
+  useEffect(() => store.set('name', gameName), [gameName])
   // The key card is a real modal dialog: focus stays inside, Esc closes it.
   useEffect(() => {
     const d = keyDialogRef.current
@@ -356,13 +375,41 @@ export function App() {
     setProblem(null)
   }
 
-  const download = () => {
+  /** Save with the game's name. Browsers that support it get a real "Save as" box to rename or pick a folder. */
+  const download = async () => {
+    const fileName = `${fileSlug(gameName)}.say`
     const blob = new Blob([steps], { type: 'text/plain' })
+    const picker = (window as Window & { showSaveFilePicker?: (o: object) => Promise<FileSystemFileHandle> }).showSaveFilePicker
+    if (picker) {
+      try {
+        const handle = await picker({
+          suggestedName: fileName,
+          types: [{ description: 'Sayntax game', accept: { 'text/plain': ['.say'] } }],
+        })
+        const out = await handle.createWritable()
+        await out.write(blob)
+        await out.close()
+        const saved = nameFromFile(handle.name)
+        if (saved) setGameName(saved)
+        feel('cheer', `Saved as ${handle.name}!`)
+        return
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') return // they closed the box
+        // anything else: fall back to a normal download
+      }
+    }
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = 'my-game.say'
+    a.download = fileName
     a.click()
     URL.revokeObjectURL(a.href)
+    feel('cheer', `Saved as ${fileName}!`)
+  }
+
+  const openFile = async (file: File | undefined) => {
+    if (!file) return
+    loadSteps(await file.text())
+    setGameName(nameFromFile(file.name) || 'My game')
   }
 
   const pick = (snippet: string) => {
@@ -433,7 +480,12 @@ export function App() {
           <span className="brand-line">Say a game. Play it.</span>
         </h1>
         <nav className="top-actions" aria-label="Game files">
-          <select aria-label="Open an example game" value="" onChange={(e) => e.target.value && loadSteps(EXAMPLES[e.target.value])}>
+          <select aria-label="Open an example game" value="" onChange={(e) => {
+              const p = e.target.value
+              if (!p) return
+              loadSteps(EXAMPLES[p])
+              setGameName(exampleName(p).replace(/^./, (c) => c.toUpperCase()))
+            }}>
             <option value="">Example games</option>
             {Object.keys(EXAMPLES).map((p) => (
               <option key={p} value={p}>
@@ -443,7 +495,15 @@ export function App() {
           </select>
           <label className="tool file-btn">
             Open
-            <input type="file" accept=".say,.txt" hidden onChange={(e) => e.target.files?.[0]?.text().then(loadSteps)} />
+            <input
+              type="file"
+              accept=".say,.txt"
+              hidden
+              onChange={(e) => {
+                openFile(e.target.files?.[0])
+                e.target.value = '' // so opening the same file again still works
+              }}
+            />
           </label>
           <button
             className={`tool${soundOn ? '' : ' muted'}`}
@@ -573,7 +633,23 @@ export function App() {
           <section className="notebook" aria-labelledby="notebook-title">
             <div className="notebook-head">
               <div className="notebook-title-row">
-                <h2 id="notebook-title">My game</h2>
+                <h2 id="notebook-title" className="game-name-wrap">
+                  <input
+                    className="game-name"
+                    value={gameName}
+                    maxLength={40}
+                    size={Math.max(4, gameName.length)}
+                    spellCheck={false}
+                    aria-label="Game name (used when you save)"
+                    title="Click to rename your game"
+                    onChange={(e) => setGameName(e.target.value)}
+                    onBlur={() => !gameName.trim() && setGameName('My game')}
+                    onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                  />
+                  <span className="game-name-pen" aria-hidden>
+                    ✎
+                  </span>
+                </h2>
                 <button className="tool bank-toggle" onClick={() => setBankOpen((o) => !o)} aria-expanded={bankOpen}>
                   Word bank
                 </button>

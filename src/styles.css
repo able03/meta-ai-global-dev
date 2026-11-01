@@ -2223,3 +2223,44 @@ textarea {
   left: calc(100% - 6px);
   border-radius: 16px 16px 16px 4px;
 }
+
+/* Game name: the notebook title doubles as the file name when saving */
+.game-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+.game-name {
+  min-width: 0;
+  width: auto;
+  field-sizing: content;
+  max-width: 100%;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 2px dashed transparent;
+  border-radius: 4px 4px 0 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-overflow: ellipsis;
+  transition: border-color 0.15s, background 0.15s;
+}
+.game-name:hover {
+  border-bottom-color: color-mix(in srgb, var(--ink) 35%, transparent);
+}
+.game-name:focus {
+  outline: none;
+  border-bottom-color: var(--ink);
+  background: color-mix(in srgb, var(--button) 35%, transparent);
+}
+.game-name-pen {
+  font-size: 0.6em;
+  opacity: 0.45;
+  pointer-events: none;
+}
+.game-name-wrap:hover .game-name-pen,
+.game-name:focus + .game-name-pen {
+  opacity: 0.9;
+}
