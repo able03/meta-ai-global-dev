@@ -2154,3 +2154,42 @@ textarea {
 .page-line:not(.ghost) + .page-line.ghost {
   border-top: 2px dashed #e0b400;
 }
+
+/* `ask` questions: a dialog box over the bottom of the game screen ---------- */
+
+.screen-frame .ask {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  z-index: 3;
+  padding: 10px 12px 12px;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  background: var(--highlighter);
+  box-shadow: 0 5px 0 rgb(0 0 0 / 0.25);
+  animation: pop 0.22s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+
+.screen-frame .ask label {
+  margin-bottom: 6px;
+  font-size: 20px;
+}
+
+.screen-frame .ask-row input {
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 19px;
+}
+
+@media (max-width: 640px) {
+  .screen-frame .ask {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    padding: 8px 10px 10px;
+  }
+  .screen-frame .ask label {
+    font-size: 17px;
+  }
+}

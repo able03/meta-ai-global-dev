@@ -674,6 +674,16 @@ export function App() {
               <div className="screen-hint">{needsTidy ? 'Press “Tidy & play” to turn your words into steps' : empty ? 'Write a game in the notebook' : 'Press play'}</div>
             )}
             {busy && <div className="screen-hint thinking">Tidying your words…</div>}
+            {/* Questions from `ask` appear on the game screen, like an RPG dialog box. */}
+            {question !== null && (
+              <form className="ask" onSubmit={submitAnswer}>
+                <label htmlFor="answer">{question}</label>
+                <div className="ask-row">
+                  <input id="answer" value={answer} onChange={(e) => setAnswer(e.target.value)} autoFocus autoComplete="off" />
+                  <button className="tool solid">Answer</button>
+                </div>
+              </form>
+            )}
           </div>
 
           <div className="controls">
@@ -712,15 +722,6 @@ export function App() {
             </div>
             <Scribble mood={scribble.mood} moodKey={scribble.key} line={scribble.line} onPoke={poke} />
           </div>
-          {question !== null && (
-            <form className="ask" onSubmit={submitAnswer}>
-              <label htmlFor="answer">{question}</label>
-              <div className="ask-row">
-                <input id="answer" value={answer} onChange={(e) => setAnswer(e.target.value)} autoFocus autoComplete="off" />
-                <button className="tool solid">Answer</button>
-              </div>
-            </form>
-          )}
         </section>
       </main>
 
