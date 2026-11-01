@@ -59,6 +59,17 @@ const localCache = {
 const KEY_MAP: Record<string, string> = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', ' ': 'space', Enter: 'enter' }
 const toKey = (e: KeyboardEvent) => KEY_MAP[e.key] ?? (e.key.length === 1 ? e.key.toLowerCase() : null)
 
+/** What Scribble says when you click it: jokes mixed with real tips. */
+const POKE_LINES = [
+  'Hey, that tickles!',
+  'Tip: tap a sticker in the word bank to add it to your game.',
+  "I'm a pencil. I always get to the point!",
+  'Tip: write in your own words — I turn them into steps.',
+  'Tip: bigger numbers make things move faster.',
+  'Why did the pencil win? It had the best lead!',
+  'Tip: press Play again after you change a line.',
+]
+
 const IDEAS = [
   'a red ball that bounces around the screen',
   'a cat that catches falling fish when I press the arrow keys',
@@ -96,6 +107,7 @@ export function App() {
   const engineRef = useRef<Engine | null>(null)
   const consoleRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const keyDialogRef = useRef<HTMLDialogElement>(null)
 
   /** Swipes the highlighter over these lines. */
   const mark = (lines: number[]) => {
@@ -111,11 +123,25 @@ export function App() {
   /** Tells Scribble how to react. */
   const feel = useCallback((mood: Mood, line: string | null) => setScribble((s) => ({ mood, key: s.key + 1, line })), [])
 
+  /** Clicking Scribble: a wave or a cheer, with a joke or a tip. */
+  const pokes = useRef(0)
+  const poke = () => {
+    const n = pokes.current++
+    feel(n % 2 === 0 ? 'cheer' : 'hello', POKE_LINES[n % POKE_LINES.length])
+  }
+
   const parsed = useMemo(() => parse(steps), [steps])
   const messy = useMemo(() => new Set(messyLines(steps)), [steps])
   const errorLines = useMemo(() => (runError ? new Set([runError.line]) : new Set<number>()), [runError])
 
   useEffect(() => store.set('steps', steps), [steps])
+  // The key card is a real modal dialog: focus stays inside, Esc closes it.
+  useEffect(() => {
+    const d = keyDialogRef.current
+    if (!d) return
+    if (showCode && !d.open) d.showModal()
+    if (!showCode && d.open) d.close()
+  }, [showCode])
   useEffect(() => {
     if (!problem && !runError) return
     setProblemRun((r) => r + 1)
@@ -397,8 +423,23 @@ export function App() {
         </nav>
       </header>
 
-      {showCode && (
+      <dialog
+        ref={keyDialogRef}
+        className="key-dialog"
+        aria-labelledby="key-title"
+        onClose={() => setShowCode(false)}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setShowCode(false) // click on the dimmed backdrop
+        }}
+      >
         <div className="key-card">
+          <div className="key-head">
+            <h2 id="key-title">Unlock Meta AI</h2>
+            <button className="key-close" onClick={() => setShowCode(false)} aria-label="Close">
+              ✕
+            </button>
+          </div>
+          {problem && <p className="key-problem">{problem}</p>}
           <p>
             Your own words get tidied by Meta AI. Steps from the word bank, example games, and anything someone already wrote run
             free — no code needed.
@@ -470,7 +511,7 @@ export function App() {
             </div>
           </form>
         </div>
-      )}
+      </dialog>
 
       <main className={`workspace show-${panel}`}>
         <aside className={`bank-col${bankOpen ? ' open' : ''}`} aria-label="Word bank">
@@ -624,7 +665,7 @@ export function App() {
                 </div>
               ))}
             </div>
-            <Scribble mood={scribble.mood} moodKey={scribble.key} line={scribble.line} />
+            <Scribble mood={scribble.mood} moodKey={scribble.key} line={scribble.line} onPoke={poke} />
           </div>
           {question !== null && (
             <form className="ask" onSubmit={submitAnswer}>

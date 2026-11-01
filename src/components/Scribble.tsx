@@ -29,11 +29,13 @@ interface Props {
   /** Changes every time a mood is triggered, so the same mood can replay. */
   moodKey: number
   line: string | null
+  /** Called when someone clicks or taps Scribble. */
+  onPoke?(): void
 }
 
 const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
-export function Scribble({ mood, moodKey, line }: Props) {
+export function Scribble({ mood, moodKey, line, onPoke }: Props) {
   const ref = useRef<ModelViewerElement>(null)
   const [ready, setReady] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -111,6 +113,7 @@ export function Scribble({ mood, moodKey, line }: Props) {
           loading="lazy"
         />
       )}
+      {loaded && onPoke && <button className="scribble-poke" onClick={onPoke} aria-label="Say hi to Scribble" />}
     </div>
   )
 }
