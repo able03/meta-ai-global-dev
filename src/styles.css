@@ -2193,3 +2193,33 @@ textarea {
     font-size: 17px;
   }
 }
+
+/* Dragging Scribble anywhere --------------------------------------------- */
+
+.scribble-poke {
+  cursor: grab;
+  touch-action: none;
+}
+
+.scribble.floating {
+  position: fixed;
+  right: auto;
+  bottom: auto;
+  z-index: 40;
+}
+
+.scribble.carrying {
+  transition: none;
+  rotate: -8deg;
+  filter: drop-shadow(0 14px 10px rgb(0 0 0 / 0.35));
+}
+
+.scribble.carrying .scribble-poke {
+  cursor: grabbing;
+}
+
+.scribble.bubble-right .scribble-says {
+  right: auto;
+  left: calc(100% - 6px);
+  border-radius: 16px 16px 16px 4px;
+}

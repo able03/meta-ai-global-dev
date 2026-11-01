@@ -720,7 +720,9 @@ export function App() {
                 </div>
               ))}
             </div>
-            <Scribble mood={scribble.mood} moodKey={scribble.key} line={scribble.line} onPoke={poke} />
+            <Scribble mood={scribble.mood} moodKey={scribble.key} line={scribble.line} onPoke={poke}
+              onDropped={() => feel('cheer', 'Wheee! Double-click me to send me home.')}
+            />
           </div>
         </section>
       </main>
