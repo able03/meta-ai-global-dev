@@ -572,8 +572,7 @@ export function App() {
           </section>
         </div>
 
-        <section className="console" aria-label="Game console">
-          <Scribble mood={scribble.mood} moodKey={scribble.key} line={scribble.line} />
+        <section className="console" aria-label="Game screen">
           <div className="screen-frame">
             <canvas
               ref={canvasRef}
@@ -586,48 +585,46 @@ export function App() {
             />
             {!running && !busy && oops && <div className="screen-hint oops">{oops}</div>}
             {!running && !busy && !oops && (
-              <div className="screen-hint">{needsTidy ? 'Press the pen to tidy your words and play' : empty ? 'Write a game in the notebook' : 'Press play'}</div>
+              <div className="screen-hint">{needsTidy ? 'Press “Tidy & play” to turn your words into steps' : empty ? 'Write a game in the notebook' : 'Press play'}</div>
             )}
             {busy && <div className="screen-hint thinking">Tidying your words…</div>}
           </div>
 
           <div className="controls">
-            <div className="dpad" role="group" aria-label="Arrow keys">
-              {(['up', 'left', 'right', 'down'] as const).map((d) => (
-                <button key={d} className={`dpad-${d}`} aria-label={`${d} arrow`} disabled={!running} {...pad(d)}>
-                  <ArrowIcon dir={d} />
-                </button>
-              ))}
-              <span className="dpad-center" aria-hidden />
-            </div>
-            <button
-              className={`play-button${needsTidy ? ' tidy' : ''}`}
-              onClick={tidyAndRun}
-              disabled={busy}
-              aria-label={needsTidy ? 'Tidy my words and play' : 'Play'}
-            >
-              {busy ? <span className="dots" aria-hidden /> : needsTidy ? <NibIcon /> : <PlayIcon />}
+            <button className={`play-button${needsTidy ? ' tidy' : ''}`} onClick={tidyAndRun} disabled={busy}>
+              {busy ? <span className="dots" aria-hidden /> : needsTidy ? <NibIcon size={26} /> : <PlayIcon size={24} />}
+              <span>{busy ? 'Thinking…' : needsTidy ? 'Tidy & play' : running ? 'Play again' : 'Play'}</span>
             </button>
-            <div className="play-label">{busy ? 'Thinking' : needsTidy ? 'Tidy & play' : running ? 'Play again' : 'Play'}</div>
-            <div className="right-buttons">
+            <button className="stop-button" onClick={stop} disabled={!running}>
+              Stop
+            </button>
+            <span className="console-help">{running ? 'Use the arrow keys and space.' : ''}</span>
+            {/* Touch screens only: the same as the arrow keys and space. */}
+            <div className="touch-pad">
+              <div className="dpad" role="group" aria-label="Arrow keys">
+                {(['up', 'left', 'right', 'down'] as const).map((d) => (
+                  <button key={d} className={`dpad-${d}`} aria-label={`${d} arrow`} disabled={!running} {...pad(d)}>
+                    <ArrowIcon dir={d} />
+                  </button>
+                ))}
+                <span className="dpad-center" aria-hidden />
+              </div>
               <button className="a-button" aria-label="Space key" disabled={!running} {...pad('space')}>
                 A
-              </button>
-              <button className="stop-button" onClick={stop} disabled={!running}>
-                Stop
               </button>
             </div>
           </div>
 
-          <p className="console-help">{running ? 'Arrow keys or the D-pad move. Space or A works as the space key.' : ' '}</p>
-
-          <div className="speech" ref={consoleRef} aria-live="polite">
-            {output.length === 0 && !question && <p className="speech-empty">Words from “say” pop up here.</p>}
-            {output.map((line, i) => (
-              <div key={i} className={line.startsWith('› ') ? 'bubble me' : 'bubble'}>
-                {line.startsWith('› ') ? line.slice(2) : line}
-              </div>
-            ))}
+          <div className="speech-wrap">
+            <div className="speech" ref={consoleRef} aria-live="polite">
+              {output.length === 0 && !question && <p className="speech-empty">Words from “say” pop up here.</p>}
+              {output.map((line, i) => (
+                <div key={i} className={line.startsWith('› ') ? 'bubble me' : 'bubble'}>
+                  {line.startsWith('› ') ? line.slice(2) : line}
+                </div>
+              ))}
+            </div>
+            <Scribble mood={scribble.mood} moodKey={scribble.key} line={scribble.line} />
           </div>
           {question !== null && (
             <form className="ask" onSubmit={submitAnswer}>

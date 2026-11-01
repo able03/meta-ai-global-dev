@@ -1810,3 +1810,180 @@ textarea {
 .try-saying .try-bank {
   color: #b8860b;
 }
+
+/* =============================================================================
+   Plain screen instead of a toy console: the game screen, one row of controls,
+   and the message area with Scribble in its corner.
+   ========================================================================== */
+
+.workspace {
+  grid-template-columns: 290px minmax(0, 1fr) minmax(400px, 0.95fr);
+}
+
+@media (max-width: 1180px) and (min-width: 981px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 0.9fr);
+  }
+}
+
+.console {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  gap: 12px;
+}
+
+.screen-frame {
+  width: min(100%, calc((100dvh - 290px) * 1.6 + 12px));
+  padding: 6px;
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: 0 8px 0 rgb(0 0 0 / 0.22);
+}
+
+.screen {
+  border-radius: 9px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.play-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  height: auto;
+  padding: 10px 22px 10px 16px;
+  border-radius: 999px;
+  background: var(--button);
+  font: 23px/1 var(--hand);
+  box-shadow: 0 5px 0 #b88a00;
+}
+
+.play-button svg {
+  margin-left: 0;
+}
+
+.play-button.tidy {
+  background: #dfe8ff;
+  box-shadow: 0 5px 0 #5f73b8;
+}
+
+.play-button:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 #b88a00;
+}
+
+.dots {
+  width: 8px;
+  height: 8px;
+  margin: 0 14px;
+  box-shadow:
+    -13px 0 0 var(--ink),
+    13px 0 0 var(--ink);
+}
+
+.stop-button {
+  padding: 9px 18px;
+  font-size: 14px;
+  transform: none;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 4px 0 rgb(0 0 0 / 0.28);
+}
+
+.console-help {
+  margin: 0;
+  min-height: 0;
+  text-align: left;
+  font-size: 13px;
+  color: rgb(255 255 255 / 0.85);
+}
+
+/* D-pad and A only on touch screens */
+.touch-pad {
+  display: none;
+  margin-left: auto;
+  align-items: center;
+  gap: 14px;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .touch-pad {
+    display: flex;
+  }
+  .console-help {
+    display: none;
+  }
+}
+
+.dpad {
+  grid-template-columns: repeat(3, 34px);
+  grid-template-rows: repeat(3, 34px);
+}
+
+.a-button {
+  width: 54px;
+  height: 54px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* Messages with Scribble in the corner — never over the buttons */
+.speech-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 92px;
+  display: flex;
+}
+
+.speech {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  border-radius: 14px;
+  padding-right: 104px;
+}
+
+.scribble {
+  top: auto;
+  right: 6px;
+  bottom: 4px;
+  width: 92px;
+  height: 112px;
+}
+
+.scribble-says {
+  top: -6px;
+  max-width: 200px;
+  font-size: 16px;
+}
+
+@media (max-height: 760px) and (min-width: 981px) {
+  .screen-frame {
+    width: min(100%, calc((100dvh - 250px) * 1.6 + 12px));
+  }
+  .play-button {
+    padding: 8px 18px 8px 14px;
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 980px) {
+  .screen-frame {
+    width: 100%;
+  }
+  .speech {
+    padding-right: 96px;
+  }
+  .scribble {
+    width: 84px;
+    height: 102px;
+  }
+}
