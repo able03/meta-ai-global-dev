@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Doodles } from './components/Doodles'
+import { ArrowIcon, NibIcon, PlayIcon } from './components/Icons'
 import { StepsEditor } from './components/StepsEditor'
 import { WordBank } from './components/WordBank'
 import { STAGE } from './lang/ast'
@@ -70,9 +71,16 @@ export function App() {
   const [assumptions, setAssumptions] = useState<string[]>([])
   const [code, setCode] = useState(() => store.get('code') ?? '')
   const [codeInput, setCodeInput] = useState('')
+  /** A visitor's own Meta API key. Kept only in this browser. */
+  const [ownKey, setOwnKey] = useState(() => store.get('ownkey') ?? '')
+  const [ownKeyInput, setOwnKeyInput] = useState('')
   const [showCode, setShowCode] = useState(false)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
+  /** Something went wrong that isn't tied to a line (no code, server down, AI didn't understand). */
+  const [problem, setProblem] = useState<string | null>(null)
+  /** Bumps on every new error so the banner shakes again. */
+  const [problemRun, setProblemRun] = useState(0)
 
   const [running, setRunning] = useState(false)
   const [output, setOutput] = useState<string[]>([])
@@ -96,6 +104,9 @@ export function App() {
   const errorLines = useMemo(() => (runError ? new Set([runError.line]) : new Set<number>()), [runError])
 
   useEffect(() => store.set('steps', steps), [steps])
+  useEffect(() => {
+    if (problem || runError) setProblemRun((r) => r + 1)
+  }, [problem, runError])
   useEffect(() => {
     consoleRef.current?.scrollTo({ top: consoleRef.current.scrollHeight })
   }, [output])
@@ -193,6 +204,7 @@ export function App() {
 
   const tidyAndRun = async () => {
     setNote(null)
+    setProblem(null)
     const fixed = autocorrect(steps)
     const source = fixed.source
     if (fixed.fixes.length) {
@@ -208,7 +220,7 @@ export function App() {
     const key = await cacheKey(source)
     const local = localCache.get(key)
     if (local) {
-      applyTidy(source, local, '⚡ Remembered from before — no AI needed.')
+      applyTidy(source, local, 'Remembered from before — tidied for free.')
       return
     }
 
@@ -216,19 +228,19 @@ export function App() {
     try {
       const res = await fetch('/api/tidy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(ownKey ? { 'X-Model-Key': ownKey } : {}) },
         body: JSON.stringify({ code: code || undefined, source }),
       })
       const data = await res.json().catch(() => ({ error: 'The server sent something unexpected.' }))
       if (!res.ok) {
-        if (data.needsCode) setShowCode(true)
-        setNote(data.error ?? 'Something went wrong.')
+        if (data.needsCode || data.badKey) setShowCode(true)
+        setProblem(data.error ?? 'Something went wrong.')
         return
       }
       localCache.set(key, { steps: data.steps, assumptions: data.assumptions })
-      applyTidy(source, data, data.cached ? '⚡ Someone said this before — no AI needed.' : '✨ Tidied by Meta Muse.')
+      applyTidy(source, data, data.cached ? 'Someone wrote this before — tidied for free.' : 'Tidied by Meta Muse.')
     } catch {
-      setNote("Couldn't reach the server. Check your connection and try again.")
+      setProblem("Couldn't reach the server. Check your internet and press play again.")
     } finally {
       setBusy(false)
     }
@@ -250,7 +262,7 @@ export function App() {
       setShowCode(false)
       setCodeInput('')
       setNote(`Unlocked! ${data.remaining} AI tidies left today.`)
-    } else setNote(data?.error ?? "Couldn't check that code.")
+    } else setProblem(data?.error ?? "Couldn't check that code.")
   }
 
   // ---------------------------------------------------------------------------
@@ -277,6 +289,7 @@ export function App() {
     setGlow(new Set())
     setRunError(null)
     setNote(null)
+    setProblem(null)
   }
 
   const download = () => {
@@ -311,6 +324,31 @@ export function App() {
   const needsTidy = messy.size > 0
   const firstError = runError ?? (needsTidy ? null : parsed.errors[0] ?? null)
   const empty = !steps.trim()
+  const oops = firstError ? `Oops! Check line ${firstError.line}` : problem ? 'Oops! See the note in your notebook' : null
+
+  /** Puts the cursor on a line and scrolls the notebook to it. */
+  const showLine = (line: number) => {
+    const el = inputRef.current
+    if (!el) return
+    const lines = steps.split('\n')
+    const start = lines.slice(0, line - 1).reduce((n, l) => n + l.length + 1, 0)
+    el.focus()
+    el.setSelectionRange(start, start + (lines[line - 1]?.length ?? 0))
+    el.scrollTop = Math.max(0, (line - 3) * 34)
+    el.closest('.notebook')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+
+  /** On-screen D-pad and A button: the same as pressing keys, for phones and tablets. */
+  const pad = (key: string) => ({
+    onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
+      e.preventDefault()
+      e.currentTarget.setPointerCapture(e.pointerId)
+      engineRef.current?.keyDown(key)
+    },
+    onPointerUp: () => engineRef.current?.keyUp(key),
+    onPointerCancel: () => engineRef.current?.keyUp(key),
+    onLostPointerCapture: () => engineRef.current?.keyUp(key),
+  })
 
   return (
     <div className="desk">
@@ -336,19 +374,21 @@ export function App() {
           <button className="tool" onClick={download}>
             Save
           </button>
-          <button className={`tool key ${code ? 'on' : ''}`} onClick={() => setShowCode((s) => !s)} aria-expanded={showCode}>
-            {code ? '🔑 AI unlocked' : '🔑 Unlock AI'}
+          <button className={`tool key ${code || ownKey ? 'on' : ''}`} onClick={() => setShowCode((s) => !s)} aria-expanded={showCode}>
+            {ownKey ? 'Using my API key' : code ? 'AI unlocked' : 'Unlock AI'}
           </button>
         </nav>
       </header>
 
       {showCode && (
-        <form className="key-card" onSubmit={saveCode}>
+        <div className="key-card">
           <p>
-            Your own words get tidied by Meta AI, and that needs a code. Steps from the word bank, example games, and anything
-            someone already said run free.
+            Your own words get tidied by Meta AI. Steps from the word bank, example games, and anything someone already wrote run
+            free — no code needed.
           </p>
-          <div className="key-row">
+          <form className="key-option" onSubmit={saveCode}>
+            <h3>I have an access code</h3>
+            <div className="key-row">
             <input value={codeInput} onChange={(e) => setCodeInput(e.target.value)} placeholder="Type your code" aria-label="Access code" />
             <button className="tool solid" type="submit">
               Unlock
@@ -365,8 +405,54 @@ export function App() {
                 Lock again
               </button>
             )}
-          </div>
-        </form>
+            </div>
+          </form>
+          <form
+            className="key-option"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const k = ownKeyInput.trim()
+              if (!k) return
+              setOwnKey(k)
+              store.set('ownkey', k)
+              setOwnKeyInput('')
+              setShowCode(false)
+              setProblem(null)
+              setNote('Using your own Meta API key. It stays in this browser.')
+            }}
+          >
+            <h3>I have my own Meta API key</h3>
+            <p className="key-small">
+              No code or daily limit — you pay Meta for what you use. Your key stays in this browser. It's sent to our server only to
+              talk to Meta, and is never saved there. Get one at dev.meta.ai.
+            </p>
+            <div className="key-row">
+              <input
+                type="password"
+                value={ownKeyInput}
+                onChange={(e) => setOwnKeyInput(e.target.value)}
+                placeholder={ownKey ? 'Your key is saved — paste a new one to replace it' : 'Paste your API key'}
+                aria-label="Your Meta API key"
+                autoComplete="off"
+              />
+              <button className="tool solid" type="submit">
+                Use my key
+              </button>
+              {ownKey && (
+                <button
+                  className="tool"
+                  type="button"
+                  onClick={() => {
+                    setOwnKey('')
+                    store.set('ownkey', '')
+                  }}
+                >
+                  Remove my key
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
       )}
 
       <main className="workspace">
@@ -379,12 +465,29 @@ export function App() {
                 steps when you press Play.
               </p>
             </div>
+            {(firstError || problem) && (
+              <div key={problemRun} className="error-banner" role="alert">
+                <span className="error-badge" aria-hidden>
+                  !
+                </span>
+                <div className="error-text">
+                  <strong>{firstError ? `Oops — line ${firstError.line} needs fixing` : 'Oops!'}</strong>
+                  <span>{firstError ? firstError.message : problem}</span>
+                </div>
+                {firstError && (
+                  <button className="tool" onClick={() => showLine(firstError.line)}>
+                    Show me
+                  </button>
+                )}
+              </div>
+            )}
             <div className="notebook-body">
               <StepsEditor
                 value={steps}
                 onChange={(v) => {
                   setSteps(v)
                   setRunError(null)
+                  setProblem(null)
                   setGlow(new Set())
                 }}
                 highlighted={glow}
@@ -404,14 +507,8 @@ export function App() {
                 </div>
               )}
             </div>
-            {(firstError || assumptions.length > 0 || note) && (
+            {(assumptions.length > 0 || note) && (
               <div className="notes">
-                {firstError && (
-                  <div className="sticky error" role="alert">
-                    <strong>Line {firstError.line}</strong>
-                    {firstError.message}
-                  </div>
-                )}
                 {assumptions.length > 0 && (
                   <div className="sticky guess">
                     <strong>I guessed</strong>
@@ -441,24 +538,42 @@ export function App() {
               onClick={onCanvasClick}
               aria-label="Screen where your game plays"
             />
-            {!running && !busy && <div className="screen-hint">{needsTidy ? 'Press ✨ to tidy and play' : 'Press ▶ to play'}</div>}
+            {!running && !busy && oops && <div className="screen-hint oops">{oops}</div>}
+            {!running && !busy && !oops && (
+              <div className="screen-hint">{needsTidy ? 'Press the pen to tidy your words and play' : empty ? 'Write a game in the notebook' : 'Press play'}</div>
+            )}
             {busy && <div className="screen-hint thinking">Tidying your words…</div>}
           </div>
 
           <div className="controls">
-            <div className="dpad" aria-hidden>
-              <span />
+            <div className="dpad" role="group" aria-label="Arrow keys">
+              {(['up', 'left', 'right', 'down'] as const).map((d) => (
+                <button key={d} className={`dpad-${d}`} aria-label={`${d} arrow`} disabled={!running} {...pad(d)}>
+                  <ArrowIcon dir={d} />
+                </button>
+              ))}
+              <span className="dpad-center" aria-hidden />
             </div>
-            <button className={`play-button${needsTidy ? ' tidy' : ''}`} onClick={tidyAndRun} disabled={busy} aria-label={needsTidy ? 'Tidy and play' : 'Play'}>
-              {busy ? '…' : needsTidy ? '✨' : '▶'}
+            <button
+              className={`play-button${needsTidy ? ' tidy' : ''}`}
+              onClick={tidyAndRun}
+              disabled={busy}
+              aria-label={needsTidy ? 'Tidy my words and play' : 'Play'}
+            >
+              {busy ? <span className="dots" aria-hidden /> : needsTidy ? <NibIcon /> : <PlayIcon />}
             </button>
             <div className="play-label">{busy ? 'Thinking' : needsTidy ? 'Tidy & play' : running ? 'Play again' : 'Play'}</div>
-            <button className="stop-button" onClick={stop} disabled={!running}>
-              Stop
-            </button>
+            <div className="right-buttons">
+              <button className="a-button" aria-label="Space key" disabled={!running} {...pad('space')}>
+                A
+              </button>
+              <button className="stop-button" onClick={stop} disabled={!running}>
+                Stop
+              </button>
+            </div>
           </div>
 
-          <p className="console-help">{running ? 'Use the arrow keys, space and your mouse.' : ' '}</p>
+          <p className="console-help">{running ? 'Arrow keys or the D-pad move. Space or A works as the space key.' : ' '}</p>
 
           <div className="speech" ref={consoleRef} aria-live="polite">
             {output.length === 0 && !question && <p className="speech-empty">Words from “say” pop up here.</p>}

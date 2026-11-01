@@ -17,8 +17,9 @@ export class MuseError extends Error {
 
 const BASE_URL = 'https://api.meta.ai/v1'
 
-export async function askMuse(instructions: string, input: string): Promise<MuseReply> {
-  const apiKey = process.env.MODEL_API_KEY
+/** `ownKey` is a visitor's own Meta API key: used for this one call, never stored or logged. */
+export async function askMuse(instructions: string, input: string, ownKey?: string): Promise<MuseReply> {
+  const apiKey = ownKey || process.env.MODEL_API_KEY
   if (!apiKey) throw new MuseError('The server has no MODEL_API_KEY set.', 500)
 
   const effort = process.env.MUSE_REASONING_EFFORT ?? 'low'

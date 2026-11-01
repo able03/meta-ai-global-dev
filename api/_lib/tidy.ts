@@ -17,13 +17,13 @@ export class TidyError extends Error {
   outputTokens = 0
 }
 
-export async function tidyWithMuse(source: string): Promise<TidyResult> {
+export async function tidyWithMuse(source: string, ownKey?: string): Promise<TidyResult> {
   const input = `Program:\n${markMessy(source, messyLines(source))}`
   let tokensIn = 0
   let tokensOut = 0
   let prompt = input
   for (let attempt = 0; attempt < 2; attempt++) {
-    const reply = await askMuse(SYSTEM_PROMPT, prompt)
+    const reply = await askMuse(SYSTEM_PROMPT, prompt, ownKey)
     tokensIn += reply.inputTokens
     tokensOut += reply.outputTokens
     let raw: { steps?: unknown; assumptions?: unknown }

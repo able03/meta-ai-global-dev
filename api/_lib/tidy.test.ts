@@ -76,6 +76,33 @@ describe('POST /api/tidy', () => {
     expect(r.data.needsCode).toBe(true)
   })
 
+  it("uses a visitor's own API key without an access code, and never counts it against limits", async () => {
+    const fetchMock = museReplies('{"steps":"🐶 is a 🐶 at center\\n🐶 bounces","assumptions":[]}')
+    const r = await POST(
+      new Request('http://localhost/api/tidy', {
+        method: 'POST',
+        headers: { 'x-model-key': 'visitor-own-key-123' },
+        body: JSON.stringify({ source: 'a dog that bounces, from a visitor with their own key' }),
+      }),
+    )
+    expect(r.status).toBe(200)
+    const auth = fetchMock.mock.calls[0][1].headers.Authorization as string
+    expect(auth).toBe('Bearer visitor-own-key-123')
+  })
+
+  it('says clearly when a visitor key is rejected by Meta', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('bad key', { status: 401 })))
+    const r = await POST(
+      new Request('http://localhost/api/tidy', {
+        method: 'POST',
+        headers: { 'x-model-key': 'visitor-wrong-key-123' },
+        body: JSON.stringify({ source: 'a frog with a wrong key that nobody said before' }),
+      }),
+    )
+    expect(r.status).toBe(401)
+    expect((await r.json()).badKey).toBe(true)
+  })
+
   it('caches answers so the same words never use the AI twice — even without a code', async () => {
     const fetchMock = museReplies('{"steps":"🐸 is a 🐸 at center\\nwhen space key is pressed: move 🐸 up 40","assumptions":["Hops 40"]}')
     const words = 'A green frog that hops when I press space'

@@ -37,7 +37,7 @@ export function StepsEditor({ value, onChange, highlighted, highlightRun, messyL
           const marked = highlighted.has(n)
           return (
             <div key={`${i}-${marked ? highlightRun : 0}`} className={`page-line ${kind}${marked ? ' marked' : ''}`}>
-              <span className="margin-num">{messyLines.has(n) ? '✏️' : n}</span>
+              <span className="margin-num">{errorLines.has(n) ? <span className="margin-bang">!</span> : messyLines.has(n) ? '✏️' : n}</span>
               <span className="line-text">{text || ' '}</span>
             </div>
           )

@@ -32,22 +32,38 @@ export async function POST(request: Request): Promise<Response> {
   const hit = PHRASEBOOK[key] ?? (await getJson<Cached>(`sayntax:tidy:${key}`).catch(() => null))
   if (hit) return json({ ...hit, changed: changedLines(source, hit.steps), cached: true })
 
-  const gate = await checkGate(body.code)
+  // A visitor's own Meta API key: their call, their bill — no access code, limits or spend cap.
+  // Used for this request only; never stored or logged.
+  const ownKey = request.headers.get('x-model-key')?.trim() || undefined
+  if (ownKey && (ownKey.length < 10 || ownKey.length > 300)) return json({ error: "That API key doesn't look right.", badKey: true }, 400)
+
+  const gate = ownKey ? { ok: true as const, remaining: Infinity } : await checkGate(body.code)
   if (!gate.ok) return json({ error: gate.error, needsCode: gate.status === 401 }, gate.status)
+  const record = (inTokens: number, outTokens: number) =>
+    ownKey ? Promise.resolve() : recordUse(body.code as string, inTokens, outTokens)
 
   try {
-    const result = await tidyWithMuse(source)
-    await recordUse(body.code as string, result.inputTokens, result.outputTokens)
+    const result = await tidyWithMuse(source, ownKey)
+    await record(result.inputTokens, result.outputTokens)
     const value: Cached = { steps: result.steps, assumptions: result.assumptions }
     await setJson(`sayntax:tidy:${key}`, value, CACHE_DAYS * 24 * 3600).catch(() => {})
-    return json({ ...value, changed: changedLines(source, result.steps), cached: false, remaining: gate.remaining - 1 })
+    return json({
+      ...value,
+      changed: changedLines(source, result.steps),
+      cached: false,
+      remaining: ownKey ? null : gate.remaining - 1,
+    })
   } catch (e) {
     if (e instanceof TidyError) {
-      if (e.inputTokens) await recordUse(body.code as string, e.inputTokens, e.outputTokens)
+      if (e.inputTokens) await record(e.inputTokens, e.outputTokens)
       return json({ error: e.message }, 422)
     }
     if (e instanceof MuseError) {
-      console.error(e.message)
+      if (ownKey && (e.status === 401 || e.status === 403)) {
+        return json({ error: "Your API key didn't work. Check it in the key settings, or remove it to use an access code.", badKey: true }, 401)
+      }
+      if (ownKey && e.status === 429) return json({ error: 'Your API key has hit its limit or run out of credit.' }, 429)
+      console.error(ownKey ? `Muse error with a visitor key: ${e.status}` : e.message)
       return json({ error: 'The AI is having trouble right now. Try again in a moment.' }, 502)
     }
     console.error(e)
