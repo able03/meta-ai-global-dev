@@ -2119,3 +2119,38 @@ textarea {
     padding: 0 6px;
   }
 }
+
+/* Drag and drop from the word bank ---------------------------------------- */
+
+.sticker[draggable='true'] {
+  cursor: grab;
+}
+
+.sticker.lifted {
+  opacity: 0.45;
+  transform: rotate(-3deg) scale(0.97);
+}
+
+.notebook-page.drop-target {
+  box-shadow: inset 0 0 0 3px var(--highlighter);
+}
+
+.page-line.ghost {
+  background: rgb(255 228 92 / 0.35);
+  border-bottom: 2px dashed #e0b400;
+  color: #6a5a00;
+}
+
+.page-line.ghost .margin-num {
+  color: #c79a00;
+  font-weight: 700;
+}
+
+.page-line.ghost .line-text {
+  font-style: italic;
+}
+
+.page-line.ghost:first-of-type,
+.page-line:not(.ghost) + .page-line.ghost {
+  border-top: 2px dashed #e0b400;
+}

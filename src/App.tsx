@@ -6,6 +6,7 @@ import { StepsEditor } from './components/StepsEditor'
 import { WordBank } from './components/WordBank'
 import { STAGE } from './lang/ast'
 import { parse } from './lang/parser'
+import { insertSnippet } from './lang/insert'
 import { autocorrect, cacheKey, changedLines, messyLines } from './lang/tidy'
 import { Engine } from './runtime/engine'
 import { audio } from './runtime/audio'
@@ -93,6 +94,8 @@ export function App() {
   /** Phones show one panel at a time; tablets slide the word bank in as a drawer. */
   const [panel, setPanel] = useState<'notebook' | 'play' | 'words'>('notebook')
   const [bankOpen, setBankOpen] = useState(false)
+  /** The word-bank sticker currently being dragged, for the drop preview. */
+  const [dragging, setDragging] = useState<string | null>(null)
   /** A visitor's own Meta API key. Kept only in this browser. */
   const [ownKey, setOwnKey] = useState(() => store.get('ownkey') ?? '')
   const [ownKeyInput, setOwnKeyInput] = useState('')
@@ -382,6 +385,16 @@ export function App() {
     })
   }
 
+  /** A sticker dragged from the word bank and dropped between two lines of the notebook. */
+  const dropSnippet = (snippet: string, at: number) => {
+    const result = insertSnippet(steps, snippet, at)
+    setSteps(result.source)
+    setRunError(null)
+    setProblem(null)
+    setDragging(null)
+    mark(result.lines)
+  }
+
   const needsTidy = messy.size > 0
   const firstError = runError ?? (needsTidy ? null : parsed.errors[0] ?? null)
   const empty = !steps.trim()
@@ -542,6 +555,10 @@ export function App() {
       <main className={`workspace show-${panel}`}>
         <aside className={`bank-col${bankOpen ? ' open' : ''}`} aria-label="Word bank">
           <WordBank
+            onDragSnippet={(snippet) => {
+              setDragging(snippet)
+              if (snippet) setBankOpen(false) // tablets: get the drawer out of the way of the notebook
+            }}
             onPick={(snippet) => {
               pick(snippet)
               setBankOpen(false)
@@ -612,6 +629,8 @@ export function App() {
                 messyLines={messy}
                 errorLines={errorLines}
                 inputRef={inputRef}
+                dragging={dragging}
+                onDropSnippet={dropSnippet}
               />
               {empty && (
                 <div className="try-saying">

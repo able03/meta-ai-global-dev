@@ -1,4 +1,7 @@
-// Stickers with every kind of Sayntax line. Tap one to write it into your game.
+// Stickers with every kind of Sayntax line. Tap one to write it into your game, or drag it
+// to exactly where it should go in the notebook.
+
+import { STICKER_MIME } from './StepsEditor'
 
 interface Word {
   snippet: string
@@ -76,7 +79,14 @@ const GROUPS: { name: string; words: Word[] }[] = [
   },
 ]
 
-export function WordBank({ onPick, onClose }: { onPick(snippet: string): void; onClose?(): void }) {
+interface Props {
+  onPick(snippet: string): void
+  onClose?(): void
+  /** Dragging a sticker toward the notebook (null when the drag ends). */
+  onDragSnippet?(snippet: string | null): void
+}
+
+export function WordBank({ onPick, onClose, onDragSnippet }: Props) {
   return (
     <section className="word-bank" aria-labelledby="word-bank-title">
       <div className="word-bank-head">
@@ -87,14 +97,30 @@ export function WordBank({ onPick, onClose }: { onPick(snippet: string): void; o
           </button>
         )}
       </div>
-      <p className="word-bank-help">Tap a sticker to write it into your game.</p>
+      <p className="word-bank-help">Tap a sticker, or drag it into your notebook.</p>
       <div className="word-groups">
         {GROUPS.map((g) => (
           <div key={g.name} className="word-group">
             <h3>{g.name}</h3>
             <div className="stickers">
               {g.words.map((w) => (
-                <button key={w.snippet} className="sticker" onClick={() => onPick(w.snippet)} title={w.tip}>
+                <button
+                  key={w.snippet}
+                  className="sticker"
+                  onClick={() => onPick(w.snippet)}
+                  title={w.tip}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData(STICKER_MIME, w.snippet)
+                    e.dataTransfer.effectAllowed = 'copy'
+                    e.currentTarget.classList.add('lifted')
+                    onDragSnippet?.(w.snippet)
+                  }}
+                  onDragEnd={(e) => {
+                    e.currentTarget.classList.remove('lifted')
+                    onDragSnippet?.(null)
+                  }}
+                >
                   <span className="sticker-code">{w.snippet.split('\n')[0]}</span>
                   <span className="sticker-tip">{w.tip}</span>
                 </button>
