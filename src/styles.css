@@ -2264,3 +2264,86 @@ textarea {
 .game-name:focus + .game-name-pen {
   opacity: 0.9;
 }
+
+/* Word bank pages: one kind of step at a time */
+.bank-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+.bank-tab {
+  padding: 4px 10px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.12);
+  color: #fff;
+  font: 600 12.5px/1.2 var(--read);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+}
+.bank-tab:hover {
+  background: rgb(255 255 255 / 0.22);
+}
+.bank-tab.on {
+  background: var(--sticker);
+  border-color: var(--ink);
+  color: var(--ink);
+  transform: rotate(-2deg);
+}
+.word-bank .word-group {
+  animation: page-in 0.25s ease-out;
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+}
+.word-bank:not(.fresh) .word-group .sticker {
+  animation: none;
+}
+.bank-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+}
+.pager-btn {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--button);
+  color: var(--ink);
+  font: 700 22px/1 var(--read);
+  box-shadow: 0 3px 0 #b88a00;
+  cursor: pointer;
+}
+.pager-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #b88a00;
+}
+.pager-dots {
+  display: flex;
+  gap: 6px;
+}
+.pager-dot {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.35);
+  cursor: pointer;
+}
+.pager-dot.on {
+  background: var(--button);
+  transform: scale(1.3);
+}
+@media (prefers-reduced-motion: reduce) {
+  .word-bank .word-group {
+    animation: none;
+  }
+}

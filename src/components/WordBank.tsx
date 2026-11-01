@@ -1,6 +1,7 @@
 // Stickers with every kind of Sayntax line. Tap one to write it into your game, or drag it
 // to exactly where it should go in the notebook.
 
+import { useState } from 'react'
 import { STICKER_MIME } from './StepsEditor'
 
 interface Word {
@@ -33,6 +34,11 @@ const GROUPS: { name: string; words: Word[] }[] = [
       { snippet: '🧱 is solid', tip: 'Makes walls nobody can walk through.' },
       { snippet: '👾 chases hero 2', tip: 'Keeps running after the hero. Great for monsters!' },
       { snippet: '🐶 follows hero 3', tip: 'A pet that follows you around.' },
+    ],
+  },
+  {
+    name: 'Characters',
+    words: [
       { snippet: 'hero says "Hello!"', tip: 'A speech bubble over the character.' },
       { snippet: 'show "❤️ {hearts}" at top left', tip: 'Text that stays on the screen, like hearts or a score.' },
       { snippet: 'hero becomes 🐉', tip: 'Turns into something else. Power-up!' },
@@ -79,6 +85,19 @@ const GROUPS: { name: string; words: Word[] }[] = [
   },
 ]
 
+/** One sticker colour per page, so each kind of line has its own look. */
+const COLORS = ['#bff0da', '#cfe3ff', '#ffd8b8', '#e3d7ff', '#ffd6e0', '#fff1a8']
+
+const PAGE_KEY = 'sayntax.bank-page'
+const loadPage = () => {
+  try {
+    const n = Number(localStorage.getItem(PAGE_KEY))
+    return Number.isInteger(n) && n >= 0 && n < GROUPS.length ? n : 0
+  } catch {
+    return 0
+  }
+}
+
 interface Props {
   onPick(snippet: string): void
   onClose?(): void
@@ -87,8 +106,22 @@ interface Props {
 }
 
 export function WordBank({ onPick, onClose, onDragSnippet }: Props) {
+  const [page, setPage] = useState(loadPage)
+  const [fresh, setFresh] = useState(true)
+  const go = (n: number) => {
+    const next = (n + GROUPS.length) % GROUPS.length
+    setPage(next)
+    setFresh(false)
+    try {
+      localStorage.setItem(PAGE_KEY, String(next))
+    } catch {
+      /* remembering the page is only a convenience */
+    }
+  }
+  const g = GROUPS[page]
+
   return (
-    <section className="word-bank" aria-labelledby="word-bank-title">
+    <section className={`word-bank${fresh ? ' fresh' : ''}`} aria-labelledby="word-bank-title">
       <div className="word-bank-head">
         <h2 id="word-bank-title">Word bank</h2>
         {onClose && (
@@ -98,36 +131,69 @@ export function WordBank({ onPick, onClose, onDragSnippet }: Props) {
         )}
       </div>
       <p className="word-bank-help">Tap a sticker, or drag it into your notebook.</p>
-      <div className="word-groups">
-        {GROUPS.map((g) => (
-          <div key={g.name} className="word-group">
-            <h3>{g.name}</h3>
-            <div className="stickers">
-              {g.words.map((w) => (
-                <button
-                  key={w.snippet}
-                  className="sticker"
-                  onClick={() => onPick(w.snippet)}
-                  title={w.tip}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData(STICKER_MIME, w.snippet)
-                    e.dataTransfer.effectAllowed = 'copy'
-                    e.currentTarget.classList.add('lifted')
-                    onDragSnippet?.(w.snippet)
-                  }}
-                  onDragEnd={(e) => {
-                    e.currentTarget.classList.remove('lifted')
-                    onDragSnippet?.(null)
-                  }}
-                >
-                  <span className="sticker-code">{w.snippet.split('\n')[0]}</span>
-                  <span className="sticker-tip">{w.tip}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+
+      <div className="bank-tabs" role="tablist" aria-label="Kinds of steps">
+        {GROUPS.map((grp, i) => (
+          <button
+            key={grp.name}
+            role="tab"
+            aria-selected={i === page}
+            className={`bank-tab${i === page ? ' on' : ''}`}
+            style={{ '--sticker': COLORS[i % COLORS.length] } as React.CSSProperties}
+            onClick={() => go(i)}
+          >
+            {grp.name}
+          </button>
         ))}
+      </div>
+
+      <div className="word-groups" role="tabpanel" aria-label={g.name}>
+        <div key={g.name} className="word-group" style={{ '--sticker': COLORS[page % COLORS.length] } as React.CSSProperties}>
+          <div className="stickers">
+            {g.words.map((w) => (
+              <button
+                key={w.snippet}
+                className="sticker"
+                onClick={() => onPick(w.snippet)}
+                title={w.tip}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData(STICKER_MIME, w.snippet)
+                  e.dataTransfer.effectAllowed = 'copy'
+                  e.currentTarget.classList.add('lifted')
+                  onDragSnippet?.(w.snippet)
+                }}
+                onDragEnd={(e) => {
+                  e.currentTarget.classList.remove('lifted')
+                  onDragSnippet?.(null)
+                }}
+              >
+                <span className="sticker-code">{w.snippet.split('\n')[0]}</span>
+                <span className="sticker-tip">{w.tip}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="bank-pager">
+        <button className="pager-btn" onClick={() => go(page - 1)} aria-label="Previous page">
+          ‹
+        </button>
+        <span className="pager-dots" aria-label={`Page ${page + 1} of ${GROUPS.length}`}>
+          {GROUPS.map((grp, i) => (
+            <button
+              key={grp.name}
+              className={`pager-dot${i === page ? ' on' : ''}`}
+              onClick={() => go(i)}
+              aria-label={grp.name}
+              tabIndex={-1}
+            />
+          ))}
+        </span>
+        <button className="pager-btn" onClick={() => go(page + 1)} aria-label="Next page">
+          ›
+        </button>
       </div>
     </section>
   )
