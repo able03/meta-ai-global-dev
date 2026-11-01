@@ -38,3 +38,12 @@ when basket touches ⭐:
 ## License
 
 MIT
+
+## Scribble, the mascot
+
+Scribble sits on the game console and reacts as you build: waves hello, scratches its head while
+Meta AI tidies your words, cheers when your game runs, and shrugs when a line needs fixing.
+
+Made with [Meshy](https://www.meshy.ai): concept image → image-to-3D → auto-rig → five animations
+(Idle, Big Wave Hello, Confused Scratch, Cheer, Shrug), compressed from 5.2 MB to 684 KB with
+`gltf-transform` (Draco + WebP), and shown with Google's `<model-viewer>`, loaded lazily after the page.

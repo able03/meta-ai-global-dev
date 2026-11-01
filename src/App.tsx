@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Doodles } from './components/Doodles'
 import { ArrowIcon, NibIcon, PlayIcon } from './components/Icons'
+import { Scribble, type Mood } from './components/Scribble'
 import { StepsEditor } from './components/StepsEditor'
 import { WordBank } from './components/WordBank'
 import { STAGE } from './lang/ast'
@@ -99,14 +100,24 @@ export function App() {
     setGlowRun((r) => r + 1)
   }
 
+  const [scribble, setScribble] = useState<{ mood: Mood; key: number; line: string | null }>({
+    mood: 'hello',
+    key: 0,
+    line: "Hi, I'm Scribble! Write a game in the notebook, then press play.",
+  })
+  /** Tells Scribble how to react. */
+  const feel = useCallback((mood: Mood, line: string | null) => setScribble((s) => ({ mood, key: s.key + 1, line })), [])
+
   const parsed = useMemo(() => parse(steps), [steps])
   const messy = useMemo(() => new Set(messyLines(steps)), [steps])
   const errorLines = useMemo(() => (runError ? new Set([runError.line]) : new Set<number>()), [runError])
 
   useEffect(() => store.set('steps', steps), [steps])
   useEffect(() => {
-    if (problem || runError) setProblemRun((r) => r + 1)
-  }, [problem, runError])
+    if (!problem && !runError) return
+    setProblemRun((r) => r + 1)
+    feel('oops', runError ? `Uh oh, line ${runError.line} needs a fix.` : 'Uh oh! Read the red note.')
+  }, [problem, runError, feel])
   useEffect(() => {
     consoleRef.current?.scrollTo({ top: consoleRef.current.scrollHeight })
   }, [output])
@@ -147,7 +158,8 @@ export function App() {
     setRunning(true)
     engine.start()
     canvasRef.current?.focus()
-  }, [])
+    feel('cheer', 'Your game is running!')
+  }, [feel])
 
   useEffect(() => {
     let raf = 0
@@ -200,6 +212,7 @@ export function App() {
     mark(changedLines(before, result.steps))
     setNote(how)
     start(result.steps)
+    feel('cheer', 'Tidied! The yellow lines are the new steps.')
   }
 
   const tidyAndRun = async () => {
@@ -225,6 +238,7 @@ export function App() {
     }
 
     setBusy(true)
+    feel('thinking', 'Hmm… turning your words into steps.')
     try {
       const res = await fetch('/api/tidy', {
         method: 'POST',
@@ -528,6 +542,7 @@ export function App() {
         </div>
 
         <section className="console" aria-label="Game console">
+          <Scribble mood={scribble.mood} moodKey={scribble.key} line={scribble.line} />
           <div className="screen-frame">
             <canvas
               ref={canvasRef}
