@@ -554,6 +554,7 @@ export function App() {
                       “{idea}”
                     </button>
                   ))}
+                  <p className="try-bank">…or tap a sticker in the word bank.</p>
                 </div>
               )}
             </div>
@@ -648,7 +649,12 @@ export function App() {
             ['words', 'Word bank'],
           ] as const
         ).map(([id, label]) => (
-          <button key={id} className={panel === id ? 'on' : ''} aria-pressed={panel === id} onClick={() => setPanel(id)}>
+          <button
+            key={id}
+            className={`${panel === id ? 'on' : ''}${id === 'words' ? ' words-tab' : ''}`}
+            aria-pressed={panel === id}
+            onClick={() => setPanel(id)}
+          >
             {label}
             {id === 'notebook' && (firstError || problem) && <span className="tab-dot" aria-label="needs fixing" />}
           </button>
