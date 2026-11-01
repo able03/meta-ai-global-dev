@@ -24,6 +24,26 @@ const GROUPS: { name: string; words: Word[] }[] = [
     ],
   },
   {
+    name: 'Build a world',
+    words: [
+      { snippet: 'background is green', tip: 'Colors the whole world. Try an emoji too, like 🌳 or ⭐.' },
+      { snippet: '🧱 is solid', tip: 'Makes walls nobody can walk through.' },
+      { snippet: '👾 chases hero 2', tip: 'Keeps running after the hero. Great for monsters!' },
+      { snippet: '🐶 follows hero 3', tip: 'A pet that follows you around.' },
+      { snippet: 'hero says "Hello!"', tip: 'A speech bubble over the character.' },
+      { snippet: 'show "❤️ {hearts}" at top left', tip: 'Text that stays on the screen, like hearts or a score.' },
+      { snippet: 'hero becomes 🐉', tip: 'Turns into something else. Power-up!' },
+      { snippet: 'hero grows 20', tip: 'Gets bigger. Use “shrinks” to get smaller.' },
+    ],
+  },
+  {
+    name: 'Sounds',
+    words: [
+      { snippet: 'play coin sound', tip: 'Sounds: coin, jump, hit, win, lose, laser, powerup, boop.' },
+      { snippet: 'play win sound', tip: 'A happy tune for when someone wins.' },
+    ],
+  },
+  {
     name: 'When…',
     words: [
       { snippet: 'when left key is pressed: move cat left 10', tip: 'Does something when you press a key.' },

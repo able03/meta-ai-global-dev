@@ -31,6 +31,12 @@ export const EXAMPLES: PromptExample[] = [
     assumptions: ['"Faster" means speed 6'],
   },
   {
+    input: `${MARK}a knight walks around a castle with walls, a slime monster chases him, and he loses a heart when it catches him`,
+    steps:
+      'background is gray\nknight is a 🤺 at left, size 44\n🧱 is solid\nmake a 🧱 at 400, 150\nmake a 🧱 at 400, 350\nslime is a green circle at right, size 36\nslime chases knight 1.5\nhearts is 3\nshow "❤️ {hearts}" at top left\nwhen left key is pressed: move knight left 6\nwhen right key is pressed: move knight right 6\nwhen up key is pressed: move knight up 6\nwhen down key is pressed: move knight down 6\nwhen knight touches slime:\n    subtract 1 from hearts\n    play hit sound\n    knight goes to left\n    if hearts is 0:\n        knight says "Game over!"\n        stop',
+    assumptions: ['The castle has two walls in the middle', 'The knight starts with 3 hearts', 'The slime moves at speed 1.5'],
+  },
+  {
     input: `${MARK}pick a secret number 1 to 10 and let me guess until i get it, say higher or lower`,
     steps:
       'secret is random 1 to 10\nforever:\n    ask "Your guess?" into guess\n    if guess is secret:\n        say "You got it!"\n        stop\n    otherwise if guess is less than secret:\n        say "Higher!"\n    otherwise:\n        say "Lower!"',
@@ -81,12 +87,22 @@ Variables:
   score is 0  |  add 1 to score  |  subtract 1 from lives  |  secret is random 1 to 10
 Text:
   say "Hello!"  |  say "Score: {score}"  |  ask "What's your name?" into name
+  hero says "Hi!"                      (a speech bubble over that character)
+  show "❤️ {hearts}" at top left        (text that stays on screen and updates by itself)
+Worlds, adventures and RPGs:
+  background is green                  (a color, or an emoji like 🌳)
+  🧱 is solid                           (walls: nothing can move through them)
+  👾 chases hero 2  |  🐶 follows hero 3 (keeps moving toward the nearest one)
+  hero becomes 🐉  |  hero turns red  |  hero grows 20  |  hero shrinks 10
+  remove all 👾
+Sounds:
+  play coin sound   (coin, jump, hit, win, lose, laser, powerup, boop)
 Blocks (a colon, then the steps inside indented 4 spaces):
   forever:  |  repeat 10 times:  |  every 1 second:  |  wait 1 second  |  stop
   if score is 10:   (also: is more than, is less than, is not, is at least, is at most, and, or)
   otherwise if guess is less than secret:  |  otherwise:
 Events (always at the far left, never indented):
-  when left key is pressed: move basket left 10    (keys: left right up down space enter, or a letter)
+  when left key is pressed: move basket left 10    (keys: left right up down space enter, or a letter like w a s d)
   when basket touches ⭐:
   when ball hits edge:       (or: hits bottom edge / top edge / left edge / right edge)
   when ball is clicked:

@@ -78,10 +78,10 @@ export const TOUCH_VERBS = new Set([
   'catches',
 ])
 
-const LETTERS = 'bcdefghijklmnopqrstuvwxyz'.split('')
+const LETTERS = 'abcdefghijklmnopqrstuvwxyz'.split('')
 export const KEY_NAMES = new Set(['left', 'right', 'up', 'down', 'space', 'enter', ...LETTERS, ...'0123456789'.split('')])
 /** Keys that repeat while held down (smooth movement). Other keys fire once per press. */
-export const HELD_KEYS = new Set(['left', 'right', 'up', 'down'])
+export const HELD_KEYS = new Set(['left', 'right', 'up', 'down', 'w', 'a', 's', 'd'])
 
 /** Lets `make a star` work without defining what a star looks like first. */
 export const EMOJI_FOR_WORD: Record<string, string> = {
@@ -121,6 +121,9 @@ export const WORD_FOR_EMOJI: Record<string, string> = Object.fromEntries(
   Object.entries(EMOJI_FOR_WORD).map(([w, e]) => [e, w]),
 )
 
+/** Retro sound effects for `play coin sound`. */
+export const SOUNDS = ['coin', 'jump', 'hit', 'win', 'lose', 'laser', 'powerup', 'boop']
+
 /** Every word Sayntax understands — used for "did you mean …?" hints. */
 export const KEYWORDS = [
   'say', 'ask', 'into', 'wait', 'second', 'stop', 'make', 'remove', 'hide', 'show', 'move', 'put',
@@ -128,6 +131,7 @@ export const KEYWORDS = [
   'goes', 'falls', 'rises', 'stops', 'says', 'disappears', 'forever', 'repeat', 'time', 'if',
   'otherwise', 'every', 'when', 'key', 'pressed', 'touches', 'hits', 'edge', 'clicked', 'size',
   'random', 'more', 'less', 'than', 'least', 'most', 'center', 'speed', 'that', 'starts',
+  'background', 'solid', 'chases', 'follows', 'toward', 'becomes', 'grows', 'shrinks', 'play', 'sound',
   ...Object.keys(COLORS),
   ...Object.keys(SHAPES),
   ...Object.keys(SIZE_WORDS),

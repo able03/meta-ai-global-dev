@@ -73,6 +73,15 @@ export type Stmt = At &
     | { k: 'moves'; ref: Ref; dir: Direction; speed: Expr }
     | { k: 'goto'; ref: Ref; place: Place }
     | { k: 'say'; expr: Expr }
+    // Building worlds (RPGs, adventures, anything)
+    | { k: 'background'; color: string | null; emoji: string | null }
+    | { k: 'solid'; ref: Ref }
+    | { k: 'chase'; ref: Ref; target: Ref; speed: Expr }
+    | { k: 'label'; expr: Expr; at: Place }
+    | { k: 'speak'; ref: Ref; expr: Expr }
+    | ({ k: 'become'; ref: Ref } & ThingLook)
+    | { k: 'grow'; ref: Ref; amount: Expr; sign: 1 | -1 }
+    | { k: 'sound'; name: string }
     | { k: 'ask'; prompt: Expr; name: string }
     | { k: 'forever'; body: Stmt[] }
     | { k: 'repeat'; count: Expr; body: Stmt[] }

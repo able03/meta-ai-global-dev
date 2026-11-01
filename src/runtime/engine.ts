@@ -18,6 +18,18 @@ export interface Instance {
   bounce: boolean
   visible: boolean
   alive: boolean
+  /** Keeps steering toward the nearest character of this kind. */
+  chase: { target: string; speed: number } | null
+  /** A speech bubble over the character (`hero says "Hi"`). */
+  bubble: { text: string; until: number } | null
+}
+
+/** Live text on the screen, from `show "❤️ {hearts}" at top left`. */
+export interface Label {
+  text: string
+  x: number
+  y: number
+  align: CanvasTextAlign
 }
 
 type Yield = { type: 'frame' } | { type: 'wait'; until: number } | { type: 'ask'; prompt: string }
@@ -41,6 +53,7 @@ interface Motion {
   vx: number
   vy: number
   bounce: boolean
+  chase: { target: string; speed: number } | null
 }
 
 export interface EngineHooks {
@@ -48,6 +61,7 @@ export interface EngineHooks {
   ask(prompt: string): void
   error(err: SayntaxError): void
   stopped(): void
+  sound?(name: string): void
 }
 
 class RuntimeFail extends Error {
@@ -72,6 +86,9 @@ export class Engine {
   running = false
   /** The line each script is currently on — lets the UI glow the step being run. */
   activeLines = new Set<number>()
+  background: { color: string | null; emoji: string | null } = { color: null, emoji: null }
+  private solidKinds = new Set<string>()
+  private labels = new Map<number, { expr: Expr; at: Place; line: number }>()
 
   private tasks: Task[] = []
   private kindMotion = new Map<string, Motion>()
@@ -287,8 +304,7 @@ export class Engine {
         const amount = this.num(this.eval(s.amount, s.line), s.line)
         const [dx, dy] = this.vector(s.dir)
         for (const i of this.resolve(s.ref, ctx, s.line)) {
-          i.x = this.clampX(i.x + dx * amount, i)
-          i.y = this.clampY(i.y + dy * amount, i)
+          this.stepTo(i, this.clampX(i.x + dx * amount, i), this.clampY(i.y + dy * amount, i))
         }
         break
       }
@@ -300,6 +316,50 @@ export class Engine {
         break
       case 'say':
         this.hooks.say(this.text(this.eval(s.expr, s.line)))
+        break
+      case 'background':
+        this.background = { color: s.color ? COLORS[s.color] : null, emoji: s.emoji }
+        break
+      case 'solid':
+        if (s.ref.name && !s.ref.that) this.solidKinds.add(s.ref.name)
+        else for (const i of this.resolve(s.ref, ctx, s.line)) this.solidKinds.add(i.kind)
+        break
+      case 'chase': {
+        const speed = this.num(this.eval(s.speed, s.line), s.line)
+        const target = s.target.name ?? ctx.last?.kind
+        if (!target) throw new RuntimeFail(s.line, 'Who should it chase? Use a name, like `👾 chases hero`.')
+        this.setMotion(s.ref, ctx, s.line, (m) => (m.chase = { target, speed }))
+        break
+      }
+      case 'label':
+        this.labels.set(s.line, { expr: s.expr, at: s.at, line: s.line })
+        break
+      case 'speak': {
+        const text = this.text(this.eval(s.expr, s.line))
+        for (const i of this.resolve(s.ref, ctx, s.line)) i.bubble = { text, until: this.time + 2500 }
+        this.hooks.say(text)
+        break
+      }
+      case 'become':
+        for (const i of this.resolve(s.ref, ctx, s.line)) {
+          if (s.emoji) {
+            i.emoji = s.emoji
+            i.shape = null
+          } else if (s.shape) {
+            i.shape = s.shape
+            i.emoji = null
+          }
+          if (s.color) i.color = COLORS[s.color] ?? i.color
+          if (s.size) i.size = s.size
+        }
+        break
+      case 'grow': {
+        const amount = this.num(this.eval(s.amount, s.line), s.line) * s.sign
+        for (const i of this.resolve(s.ref, ctx, s.line)) i.size = Math.min(400, Math.max(8, i.size + amount))
+        break
+      }
+      case 'sound':
+        this.hooks.sound?.(s.name)
         break
       case 'ask': {
         const answer = yield { type: 'ask', prompt: this.text(this.eval(s.prompt, s.line)) }
@@ -371,6 +431,8 @@ export class Engine {
       bounce: motion?.bounce ?? false,
       visible: true,
       alive: true,
+      chase: motion?.chase ?? null,
+      bubble: null,
     }
     this.things.push(inst)
     return inst
@@ -395,7 +457,7 @@ export class Engine {
    */
   private setMotion(ref: Ref, ctx: Ctx, line: number, change: (m: Motion) => void): void {
     if (!ref.that && ref.name) {
-      const m = this.kindMotion.get(ref.name) ?? { vx: 0, vy: 0, bounce: false }
+      const m = this.kindMotion.get(ref.name) ?? { vx: 0, vy: 0, bounce: false, chase: null }
       change(m)
       this.kindMotion.set(ref.name, m)
     }
@@ -457,8 +519,15 @@ export class Engine {
   private physics(): void {
     for (const t of this.things) {
       if (!t.alive) continue
-      t.x += t.vx
-      t.y += t.vy
+      if (t.chase) this.steer(t, t.chase.target, t.chase.speed)
+      if (t.bubble && t.bubble.until < this.time) t.bubble = null
+      if (t.vx || t.vy) {
+        const hit = this.stepTo(t, t.x + t.vx, t.y + t.vy)
+        if (hit && t.bounce) {
+          if (hit.x) t.vx = -t.vx
+          if (hit.y) t.vy = -t.vy
+        }
+      }
       if (t.bounce) {
         const half = t.size / 2
         if ((t.x < half && t.vx < 0) || (t.x > this.width - half && t.vx > 0)) t.vx = -t.vx
@@ -469,6 +538,80 @@ export class Engine {
         t.alive = false // drifted far off screen — tidy up
       }
     }
+  }
+
+  /**
+   * Moves a character, but not into anything solid (walls). Tries each direction on its own,
+   * so a hero can still slide along a wall. Returns which directions were blocked.
+   */
+  private stepTo(t: Instance, x: number, y: number): { x: boolean; y: boolean } | null {
+    if (this.solidKinds.size === 0 || this.solidKinds.has(t.kind)) {
+      t.x = x
+      t.y = y
+      return null
+    }
+    const blocked = { x: false, y: false }
+    const fromX = t.x
+    t.x = x
+    if (this.hitsSolid(t)) {
+      t.x = fromX
+      blocked.x = true
+    }
+    const fromY = t.y
+    t.y = y
+    if (this.hitsSolid(t)) {
+      t.y = fromY
+      blocked.y = true
+    }
+    return blocked.x || blocked.y ? blocked : null
+  }
+
+  private hitsSolid(t: Instance): boolean {
+    for (const w of this.things) {
+      if (w === t || !w.alive || !w.visible || !this.solidKinds.has(w.kind)) continue
+      const reach = (t.size + w.size) * 0.45
+      if (Math.abs(t.x - w.x) < reach && Math.abs(t.y - w.y) < reach) return true
+    }
+    return false
+  }
+
+  /** Points a chaser at the nearest character of the target kind. */
+  private steer(t: Instance, target: string, speed: number): void {
+    let best: Instance | null = null
+    let bestDist = Infinity
+    for (const o of this.things) {
+      if (o === t || !o.alive || o.kind !== target) continue
+      const d = Math.hypot(o.x - t.x, o.y - t.y)
+      if (d < bestDist) {
+        best = o
+        bestDist = d
+      }
+    }
+    if (!best || bestDist < 1) {
+      t.vx = 0
+      t.vy = 0
+      return
+    }
+    t.vx = ((best.x - t.x) / bestDist) * speed
+    t.vy = ((best.y - t.y) / bestDist) * speed
+  }
+
+  /** On-screen text from `show "..." at ...`, with variables filled in. */
+  labelTexts(): Label[] {
+    const out: Label[] = []
+    for (const l of this.labels.values()) {
+      let text: string
+      try {
+        text = this.text(this.eval(l.expr, l.line))
+      } catch {
+        continue
+      }
+      const x = l.at.x.kind === 'min' ? 14 : l.at.x.kind === 'max' ? this.width - 14 : this.pos(l.at.x, this.width, 0)
+      const y = l.at.y.kind === 'min' ? 28 : l.at.y.kind === 'max' ? this.height - 16 : this.pos(l.at.y, this.height, 0)
+      const align: CanvasTextAlign = l.at.x.kind === 'min' ? 'left' : l.at.x.kind === 'max' ? 'right' : 'center'
+      out.push({ text, x, y, align })
+    }
+    return out
   }
 
   private sidesTouched(t: Instance): Side[] {

@@ -1,0 +1,39 @@
+# A tiny adventure: collect 3 gems and dodge the monster.
+background is green
+hero is a 🧙 at left, size 44
+🧱 is solid
+make a 🧱 at 400, 110
+make a 🧱 at 400, 160
+make a 🧱 at 400, 340
+make a 🧱 at 400, 390
+👾 chases hero 1.2
+make a 👾 at right
+gems is 0
+hearts is 3
+show "💎 {gems}/3   ❤️ {hearts}" at top left
+repeat 3 times:
+    make a 💎 at random place
+hero says "Find 3 gems!"
+
+when left key is pressed: move hero left 6
+when right key is pressed: move hero right 6
+when up key is pressed: move hero up 6
+when down key is pressed: move hero down 6
+
+when hero touches 💎:
+    add 1 to gems
+    remove that 💎
+    play coin sound
+    if gems is 3:
+        hero says "I did it!"
+        play win sound
+        stop
+
+when hero touches 👾:
+    subtract 1 from hearts
+    play hit sound
+    hero goes to left
+    if hearts is 0:
+        hero says "Oh no!"
+        play lose sound
+        stop

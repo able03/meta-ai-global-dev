@@ -41,18 +41,26 @@ export function normalizeLine(raw: string): string {
 
 export function tokenize(raw: string): Tok[] {
   const line = normalizeLine(raw)
-  const toks: Tok[] = []
+  const toks: (Tok & { filler?: boolean })[] = []
   for (const m of line.matchAll(TOKEN_RE)) {
     if (m[1] !== undefined) toks.push({ t: 'str', v: m[1] })
     else if (m[2] !== undefined) toks.push({ t: 'num', v: m[2] })
     else if (m[3] !== undefined) toks.push({ t: 'emoji', v: m[3] })
     else if (m[4] !== undefined) {
       const lower = m[4].toLowerCase()
-      if (FILLERS.has(lower)) continue
+      if (FILLERS.has(lower)) {
+        toks.push({ t: 'word', v: lower, filler: true })
+        continue
+      }
       toks.push({ t: 'word', v: SYNONYMS[lower] ?? lower })
     } else if (m[5] !== undefined) toks.push({ t: 'sym', v: m[5] })
   }
+  // Drop filler words, except "when a key is pressed" / "if a key…" (the A key, as in WASD).
+  // "make a key" (an RPG item) keeps "a" as filler.
+  const keyContext = new Set(['when', 'whenever', 'if', 'and', 'or'])
   return toks
+    .filter((t, i) => !t.filler || (t.v === 'a' && toks[i + 1]?.v === 'key' && keyContext.has(toks[i - 1]?.v ?? '')))
+    .map(({ t, v }) => ({ t, v }))
 }
 
 /** Strips a `# comment` that is not inside quotes. */

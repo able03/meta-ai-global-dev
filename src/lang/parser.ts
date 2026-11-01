@@ -20,6 +20,7 @@ import type {
 import { stripComment, tokenize, type Tok } from './tokens.js'
 import {
   closest,
+  SOUNDS,
   COLORS,
   DIRECTIONS,
   EDGE_WORDS,
@@ -42,9 +43,9 @@ const BLOCK_STARTERS = new Set(['forever', 'always', 'repeat', 'loop', 'if', 'ot
 
 /** Words that can never be a variable or character name. */
 const RESERVED = new Set([
-  ...KEYWORDS.filter((w) => !(w in COLORS) && !(w in SHAPES)),
+  ...KEYWORDS.filter((w) => !(w in COLORS) && !(w in SHAPES) && w !== 'key'), // "key" can be an RPG item
   'is', 'are', 'to', 'and', 'or', 'not', 'by', 'at', 'in', 'on', 'of', 'then', 'it', 'this', 'those',
-  'with', 'than', 'time', 'second',
+  'with', 'than', 'time', 'second', 'background', 'sky', 'solid', 'all', 'every', 'toward', 'towards', 'sound',
 ])
 
 // ---------------------------------------------------------------------------
@@ -112,6 +113,7 @@ function parseName(c: Cursor, what = 'a name'): string {
 }
 
 function parseRef(c: Cursor): Ref {
+  c.eatWord('all', 'every') // "remove all 👾" means every 👾, which a plain name already does
   if (c.eatWord('that', 'this', 'those', 'these')) {
     return { name: isNameTok(c.peek()) ? parseName(c) : null, that: true }
   }
@@ -357,7 +359,7 @@ function parseSingleCond(c: Cursor): Cond {
 // ---------------------------------------------------------------------------
 // Statements
 
-function parseLook(c: Cursor): { look: ThingLook; at: Place | null } {
+function parseLook(c: Cursor, defaultShape = true): { look: ThingLook; at: Place | null } {
   const look: ThingLook = { color: null, shape: null, emoji: null, size: null }
   let at: Place | null = null
   while (!c.done()) {
@@ -389,7 +391,7 @@ function parseLook(c: Cursor): { look: ThingLook; at: Place | null } {
       fail(`I don't know how to draw "${t.v}". Try a shape (circle, square, triangle), a color, or an emoji.`)
     }
   }
-  if (!look.shape && !look.emoji) look.shape = 'circle'
+  if (defaultShape && !look.shape && !look.emoji) look.shape = 'circle'
   return { look, at }
 }
 
@@ -415,11 +417,33 @@ function parseSimpleInner(c: Cursor, line: number): Stmt {
         return { line, k: 'say', expr: parseSayText(c) }
       case 'show':
         if (c.peek(1)?.t === 'str') {
+          // `show "❤️ {hearts}" at top left` puts live text on the screen; without a place it's like say
           c.i++
+          const saved = c.i
+          const expr = parseExpr(c)
+          if (c.eatWord('at', 'on', 'in')) return { line, k: 'label', expr, at: requirePlace(c) }
+          if (c.done()) return { line, k: 'say', expr }
+          c.i = saved
           return { line, k: 'say', expr: parseSayText(c) }
         }
         c.i++
         return { line, k: 'show', ref: parseRef(c) }
+      case 'play': {
+        c.i++
+        c.eatWord('sound', 'noise')
+        const t = c.next()
+        c.eatWord('sound', 'noise')
+        if (!SOUNDS.includes(t.v)) {
+          const guess = closest(t.v, SOUNDS)
+          fail(guess ? `I don't know the sound "${t.v}" — did you mean "${guess}"?` : `Try one of these sounds: ${SOUNDS.join(', ')}.`)
+        }
+        return { line, k: 'sound', name: t.v }
+      }
+      case 'background':
+      case 'sky':
+        c.i++
+        c.eatWord('is', 'to', 'becomes', 'color', 'colour')
+        return parseBackground(c, line)
       case 'hide':
         c.i++
         return { line, k: 'hide', ref: parseRef(c) }
@@ -526,6 +550,7 @@ function parseSimpleInner(c: Cursor, line: number): Stmt {
     return { line, k: 'set', name: ref.name as string, expr: parseExpr(c) }
   }
   if (c.eatWord('is', 'are')) {
+    if (c.eatWord('solid', 'wall', 'walls', 'blocking')) return { line, k: 'solid', ref }
     if (!ref.name || ref.that) fail('Give it a name first, like `ball is a red circle`.')
     if (startsLook(c.peek())) {
       const { look, at } = parseLook(c)
@@ -548,6 +573,7 @@ function parseSimpleInner(c: Cursor, line: number): Stmt {
     case 'swims':
     case 'travels': {
       if (c.eatWord('to')) return { line, k: 'goto', ref, place: requirePlace(c) }
+      if (c.eatWord('toward', 'towards')) return parseChase(c, line, ref)
       let dir = parseDirection(c)
       c.eatWord('at', 'with')
       c.eatWord('speed')
@@ -581,7 +607,32 @@ function parseSimpleInner(c: Cursor, line: number): Stmt {
       return { line, k: 'halt', ref }
     case 'says':
     case 'say':
-      return { line, k: 'say', expr: parseSayText(c) }
+    case 'talks':
+      c.eatWord('to') // speech bubble over the character
+      return { line, k: 'speak', ref, expr: parseSayText(c) }
+    case 'follows':
+    case 'follow':
+    case 'chases':
+    case 'chase':
+    case 'hunts':
+      return parseChase(c, line, ref)
+    case 'becomes':
+    case 'become':
+    case 'turns':
+    case 'transforms':
+    case 'changes': {
+      c.eatWord('into', 'to')
+      const { look } = parseLook(c, false)
+      return { line, k: 'become', ref, ...look }
+    }
+    case 'grows':
+    case 'grow':
+    case 'shrinks':
+    case 'shrink': {
+      c.eatWord('by')
+      const amount: Expr = c.done() ? { k: 'num', value: 10 } : parseExpr(c)
+      return { line, k: 'grow', ref, amount, sign: verb.v.startsWith('shrink') ? -1 : 1 }
+    }
     case 'disappears':
     case 'vanishes':
     case 'dies':
@@ -598,6 +649,23 @@ function parseSimpleInner(c: Cursor, line: number): Stmt {
       return { line, k: 'goto', ref, place: requirePlace(c) }
   }
   return fail(`I don't know what "${verb.v}" means here.`)
+}
+
+/** "👾 chases hero 2", "🐶 follows hero", "👾 moves toward hero at speed 1.5" */
+function parseChase(c: Cursor, line: number, ref: Ref): Stmt {
+  const target = parseRef(c)
+  c.eatWord('at', 'with')
+  c.eatWord('speed')
+  const speed: Expr = c.done() ? { k: 'num', value: 2 } : parseExpr(c)
+  c.eatWord('speed')
+  return { line, k: 'chase', ref, target, speed }
+}
+
+function parseBackground(c: Cursor, line: number): Stmt {
+  const t = c.next()
+  if (t.t === 'emoji') return { line, k: 'background', color: null, emoji: t.v }
+  if (t.t === 'word' && t.v in COLORS) return { line, k: 'background', color: t.v, emoji: null }
+  return fail(`Try a color or an emoji, like \`background is green\` or \`background is 🌳\`.`)
 }
 
 function requirePlace(c: Cursor): Place {
@@ -914,6 +982,7 @@ function buildProgram(body: Stmt[]): Program {
 
 function forEachRef(s: Stmt, fn: (r: Ref) => void): void {
   if ('ref' in s) fn(s.ref)
+  if (s.k === 'chase') fn(s.target)
   if (s.k === 'whenTouch') {
     fn(s.a)
     fn(s.b)
@@ -957,7 +1026,15 @@ function forEachExpr(s: Stmt, fn: (e: Expr) => void): void {
       visitExpr(s.expr)
       break
     case 'say':
+    case 'label':
+    case 'speak':
       visitExpr(s.expr)
+      break
+    case 'chase':
+      visitExpr(s.speed)
+      break
+    case 'grow':
+      visitExpr(s.amount)
       break
     case 'ask':
       visitExpr(s.prompt)

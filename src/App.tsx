@@ -8,6 +8,7 @@ import { STAGE } from './lang/ast'
 import { parse } from './lang/parser'
 import { autocorrect, cacheKey, changedLines, messyLines } from './lang/tidy'
 import { Engine } from './runtime/engine'
+import { audio } from './runtime/audio'
 import { render } from './runtime/render'
 
 interface Tidied {
@@ -83,6 +84,12 @@ export function App() {
   const [assumptions, setAssumptions] = useState<string[]>([])
   const [code, setCode] = useState(() => store.get('code') ?? '')
   const [codeInput, setCodeInput] = useState('')
+  const [soundOn, setSoundOn] = useState(() => store.get('sound') !== 'off')
+  useEffect(() => {
+    audio.setEnabled(soundOn)
+    store.set('sound', soundOn ? 'on' : 'off')
+    if (soundOn && engineRef.current?.running) audio.startMusic()
+  }, [soundOn])
   /** Phones show one panel at a time; tablets slide the word bank in as a drawer. */
   const [panel, setPanel] = useState<'notebook' | 'play' | 'words'>('notebook')
   const [bankOpen, setBankOpen] = useState(false)
@@ -163,6 +170,7 @@ export function App() {
 
   const stop = useCallback(() => {
     engineRef.current?.stop()
+    audio.stopMusic()
     setRunning(false)
     setQuestion(null)
   }, [])
@@ -179,12 +187,15 @@ export function App() {
       ask: (prompt) => setQuestion(prompt),
       error: (err) => setRunError(err),
       stopped: () => {
+        audio.stopMusic()
         setRunning(false)
         setQuestion(null)
       },
+      sound: (name) => audio.sfx(name),
     })
     engineRef.current = engine
     setRunning(true)
+    audio.startMusic()
     engine.start()
     canvasRef.current?.focus()
     feel('cheer', 'Your game is running!')
@@ -410,11 +421,19 @@ export function App() {
               </option>
             ))}
           </select>
-          <label className="tool">
+          <label className="tool file-btn">
             Open
             <input type="file" accept=".say,.txt" hidden onChange={(e) => e.target.files?.[0]?.text().then(loadSteps)} />
           </label>
-          <button className="tool" onClick={download}>
+          <button
+            className={`tool${soundOn ? '' : ' muted'}`}
+            onClick={() => setSoundOn((on) => !on)}
+            aria-pressed={soundOn}
+            title="Retro music and sound effects"
+          >
+            ♪<span className="btn-label">{soundOn ? ' Sound on' : ' Sound off'}</span>
+          </button>
+          <button className="tool file-btn" onClick={download}>
             Save
           </button>
           <button className={`tool key ${code || ownKey ? 'on' : ''}`} onClick={() => setShowCode((s) => !s)} aria-expanded={showCode}>
