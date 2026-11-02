@@ -2,6 +2,7 @@
 // Forgiving on purpose: case, "the/a/an", plurals and common synonyms don't matter,
 // and every error is a kind, specific hint instead of an error code.
 
+import { isSprite } from './characters.js'
 import type {
   CmpOp,
   Cond,
@@ -368,6 +369,9 @@ function parseLook(c: Cursor, defaultShape = true): { look: ThingLook; at: Place
     if (t.t === 'emoji') {
       look.emoji = t.v
       c.i++
+    } else if (t.t === 'word' && isSprite(t.v)) {
+      look.sprite = t.v
+      c.i++
     } else if (t.t === 'word' && t.v in COLORS) {
       look.color = t.v
       c.i++
@@ -388,15 +392,15 @@ function parseLook(c: Cursor, defaultShape = true): { look: ThingLook; at: Place
     } else if (isPlaceStart(c)) {
       at = parsePlace(c)
     } else {
-      fail(`I don't know how to draw "${t.v}". Try a shape (circle, square, triangle), a color, or an emoji.`)
+      fail(`I don't know how to draw "${t.v}". Try a character (knight, wizard, slime, dragon…), a shape (circle, square), a color, or an emoji.`)
     }
   }
-  if (defaultShape && !look.shape && !look.emoji) look.shape = 'circle'
+  if (defaultShape && !look.shape && !look.emoji && !look.sprite) look.shape = 'circle'
   return { look, at }
 }
 
 const startsLook = (t: Tok | undefined): boolean =>
-  !!t && (t.t === 'emoji' || (t.t === 'word' && (t.v in COLORS || t.v in SHAPES || t.v in SIZE_WORDS)))
+  !!t && (t.t === 'emoji' || (t.t === 'word' && (t.v in COLORS || t.v in SHAPES || t.v in SIZE_WORDS || isSprite(t.v))))
 
 function parseSimple(toks: Tok[], line: number): Stmt {
   const c = new Cursor(toks)
@@ -959,7 +963,7 @@ function buildProgram(body: Stmt[]): Program {
   const vars = new Set<string>()
   walk(body, (s) => {
     if (s.k === 'thing' && !looks[s.name]) {
-      looks[s.name] = { color: s.color, shape: s.shape, emoji: s.emoji, size: s.size }
+      looks[s.name] = { color: s.color, shape: s.shape, emoji: s.emoji, size: s.size, sprite: s.sprite ?? null }
     }
     if (s.k === 'set' || s.k === 'change' || s.k === 'ask') vars.add(s.name)
   })
@@ -967,6 +971,7 @@ function buildProgram(body: Stmt[]): Program {
   const autoLook = (name: string | null) => {
     if (!name || looks[name]) return
     if (/\p{Extended_Pictographic}/u.test(name)) looks[name] = { color: null, shape: null, emoji: name, size: null }
+    else if (isSprite(name)) looks[name] = { color: null, shape: null, emoji: null, size: null, sprite: name }
   }
   walk(body, (s) => {
     if (s.k === 'make') {

@@ -1,0 +1,48 @@
+# Knight quest: grab the key, open the chest, and watch out for slimes!
+background is green
+hero is a knight at left, size 48
+🐶 follows hero 3
+make a slime at right
+make a bat at top right
+slime chases hero 1
+bat chases hero 1.5
+make a key at random place
+make a chest at bottom right
+hearts is 3
+show "❤️ {hearts}" at top left
+hero says "Find the key!"
+
+when left key is pressed: move hero left 6
+when right key is pressed: move hero right 6
+when up key is pressed: move hero up 6
+when down key is pressed: move hero down 6
+
+when hero touches key:
+    remove that key
+    play powerup sound
+    hero says "Now the chest!"
+
+when hero touches chest:
+    remove that chest
+    hero becomes a wizard
+    hero says "I found magic!"
+    play win sound
+    stop
+
+when hero touches slime:
+    subtract 1 from hearts
+    play hit sound
+    hero goes to left
+    if hearts is 0:
+        hero says "Oh no!"
+        play lose sound
+        stop
+
+when hero touches bat:
+    subtract 1 from hearts
+    play hit sound
+    hero goes to left
+    if hearts is 0:
+        hero says "Oh no!"
+        play lose sound
+        stop

@@ -3,13 +3,30 @@
 
 import { useState } from 'react'
 import { STICKER_MIME } from './StepsEditor'
+import { SPRITES, spriteDataUrl } from '../lang/characters'
 
 interface Word {
   snippet: string
   tip: string
+  /** Ready-made pixel character, shown as a picture tile. */
+  sprite?: string
 }
 
+const HEROES = new Set(['knight', 'wizard', 'princess', 'ninja', 'robot'])
+
+/** One picture sticker per ready-made character. */
+const CHARACTER_WORDS: Word[] = Object.entries(SPRITES).map(([name, s]) => ({
+  sprite: name,
+  snippet: HEROES.has(name) ? `hero is a ${name} at left` : s.item ? `make a ${name} at random place` : `make a ${name} at right`,
+  tip: HEROES.has(name)
+    ? `Your hero is a ${name}. Rename "hero" to anything you like.`
+    : s.item
+      ? `A ${name} to pick up somewhere on the map.`
+      : `A ${name}! Try "${name} chases hero 1".`,
+}))
+
 const GROUPS: { name: string; words: Word[] }[] = [
+  { name: 'Characters', words: CHARACTER_WORDS },
   {
     name: 'Make things',
     words: [
@@ -37,7 +54,7 @@ const GROUPS: { name: string; words: Word[] }[] = [
     ],
   },
   {
-    name: 'Characters',
+    name: 'Speak & change',
     words: [
       { snippet: 'hero says "Hello!"', tip: 'A speech bubble over the character.' },
       { snippet: 'show "❤️ {hearts}" at top left', tip: 'Text that stays on the screen, like hearts or a score.' },
@@ -149,11 +166,11 @@ export function WordBank({ onPick, onClose, onDragSnippet }: Props) {
 
       <div className="word-groups" role="tabpanel" aria-label={g.name}>
         <div key={g.name} className="word-group" style={{ '--sticker': COLORS[page % COLORS.length] } as React.CSSProperties}>
-          <div className="stickers">
+          <div className={g.words[0]?.sprite ? 'stickers picture-stickers' : 'stickers'}>
             {g.words.map((w) => (
               <button
                 key={w.snippet}
-                className="sticker"
+                className={w.sprite ? 'sticker picture' : 'sticker'}
                 onClick={() => onPick(w.snippet)}
                 title={w.tip}
                 draggable
@@ -168,8 +185,17 @@ export function WordBank({ onPick, onClose, onDragSnippet }: Props) {
                   onDragSnippet?.(null)
                 }}
               >
-                <span className="sticker-code">{w.snippet.split('\n')[0]}</span>
-                <span className="sticker-tip">{w.tip}</span>
+                {w.sprite ? (
+                  <>
+                    <img className="sprite-pic" src={spriteDataUrl(w.sprite)} alt="" draggable={false} />
+                    <span className="sprite-name">{SPRITES[w.sprite].label}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="sticker-code">{w.snippet.split('\n')[0]}</span>
+                    <span className="sticker-tip">{w.tip}</span>
+                  </>
+                )}
               </button>
             ))}
           </div>

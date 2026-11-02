@@ -13,6 +13,10 @@ export interface Instance {
   color: string
   shape: Shape | null
   emoji: string | null
+  /** A ready-made pixel-art character (see lang/characters.ts). */
+  sprite: string | null
+  /** Which way it's facing: 1 = right, -1 = left. Pixel characters flip to match. */
+  facing: 1 | -1
   vx: number
   vy: number
   bounce: boolean
@@ -342,12 +346,18 @@ export class Engine {
       }
       case 'become':
         for (const i of this.resolve(s.ref, ctx, s.line)) {
-          if (s.emoji) {
+          if (s.sprite) {
+            i.sprite = s.sprite
+            i.emoji = null
+            i.shape = null
+          } else if (s.emoji) {
             i.emoji = s.emoji
             i.shape = null
+            i.sprite = null
           } else if (s.shape) {
             i.shape = s.shape
             i.emoji = null
+            i.sprite = null
           }
           if (s.color) i.color = COLORS[s.color] ?? i.color
           if (s.size) i.size = s.size
@@ -426,6 +436,8 @@ export class Engine {
       color: COLORS[look.color ?? ''] ?? '#3b82f6',
       shape: look.shape,
       emoji: look.emoji,
+      sprite: look.sprite ?? null,
+      facing: 1,
       vx: motion?.vx ?? 0,
       vy: motion?.vy ?? 0,
       bounce: motion?.bounce ?? false,
@@ -545,6 +557,8 @@ export class Engine {
    * so a hero can still slide along a wall. Returns which directions were blocked.
    */
   private stepTo(t: Instance, x: number, y: number): { x: boolean; y: boolean } | null {
+    if (x < t.x - 0.01) t.facing = -1
+    else if (x > t.x + 0.01) t.facing = 1
     if (this.solidKinds.size === 0 || this.solidKinds.has(t.kind)) {
       t.x = x
       t.y = y

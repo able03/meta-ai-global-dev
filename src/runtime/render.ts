@@ -1,6 +1,7 @@
 // Paints the engine's world onto a canvas: background, characters, speech bubbles and on-screen text.
 
 import type { Engine } from './engine'
+import { spriteCanvas } from '../lang/characters'
 
 const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif'
 const HAND_FONT = '"Patrick Hand", "Comic Sans MS", cursive'
@@ -32,6 +33,17 @@ export function render(ctx: CanvasRenderingContext2D, engine: Engine | null, bac
 
   for (const t of engine.things) {
     if (!t.alive || !t.visible) continue
+    const pixels = t.sprite ? spriteCanvas(t.sprite) : null
+    if (pixels) {
+      // Crisp, chunky pixels; turned around to face the way it's moving.
+      ctx.save()
+      ctx.imageSmoothingEnabled = false
+      ctx.translate(t.x, t.y)
+      ctx.scale(t.facing, 1)
+      ctx.drawImage(pixels, -t.size / 2, -t.size / 2, t.size, t.size)
+      ctx.restore()
+      continue
+    }
     if (t.emoji) {
       ctx.font = `${t.size}px ${EMOJI_FONT}`
       ctx.textAlign = 'center'

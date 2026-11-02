@@ -2347,3 +2347,29 @@ textarea {
     animation: none;
   }
 }
+
+/* Ready-made characters: picture tiles in the word bank */
+.picture-stickers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.sticker.picture {
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px 6px;
+  text-align: center;
+}
+.sprite-pic {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+  transition: transform 0.15s;
+}
+.sticker.picture:hover .sprite-pic {
+  transform: translateY(-3px) rotate(-4deg);
+}
+.sprite-name {
+  font: 18px/1 var(--hand);
+  color: var(--ink);
+}

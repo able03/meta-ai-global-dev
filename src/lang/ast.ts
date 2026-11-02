@@ -56,6 +56,8 @@ export interface ThingLook {
   shape: Shape | null
   emoji: string | null
   size: number | null
+  /** A ready-made pixel-art character, like "knight" or "slime". */
+  sprite?: string | null
 }
 
 interface At {

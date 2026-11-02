@@ -33,7 +33,7 @@ export const EXAMPLES: PromptExample[] = [
   {
     input: `${MARK}a knight walks around a castle with walls, a slime monster chases him, and he loses a heart when it catches him`,
     steps:
-      'background is gray\nknight is a 🤺 at left, size 44\n🧱 is solid\nmake a 🧱 at 400, 150\nmake a 🧱 at 400, 350\nslime is a green circle at right, size 36\nslime chases knight 1.5\nhearts is 3\nshow "❤️ {hearts}" at top left\nwhen left key is pressed: move knight left 6\nwhen right key is pressed: move knight right 6\nwhen up key is pressed: move knight up 6\nwhen down key is pressed: move knight down 6\nwhen knight touches slime:\n    subtract 1 from hearts\n    play hit sound\n    knight goes to left\n    if hearts is 0:\n        knight says "Game over!"\n        stop',
+      'background is gray\nknight is a knight at left, size 48\n🧱 is solid\nmake a 🧱 at 400, 150\nmake a 🧱 at 400, 350\nslime is a slime at right, size 40\nslime chases knight 1.5\nhearts is 3\nshow "❤️ {hearts}" at top left\nwhen left key is pressed: move knight left 6\nwhen right key is pressed: move knight right 6\nwhen up key is pressed: move knight up 6\nwhen down key is pressed: move knight down 6\nwhen knight touches slime:\n    subtract 1 from hearts\n    play hit sound\n    knight goes to left\n    if hearts is 0:\n        knight says "Game over!"\n        stop',
     assumptions: ['The castle has two walls in the middle', 'The knight starts with 3 hearts', 'The slime moves at speed 1.5'],
   },
   {
@@ -63,7 +63,7 @@ Reply with ONLY a JSON object, no markdown fences:
 4. A marked line with just a typo or odd wording is rewritten into the closest standard form.
 5. NEVER add features the kid did not ask for (no surprise score, lives, sounds, timers or extra characters).
 6. If something is vague, make a simple guess and list each guessed value in "assumptions", in short plain words a kid understands.
-7. Use only the standard forms below, one idea per line, short lines. Names are one lowercase word or an emoji. Prefer emoji for characters when natural (cat 🐱, dog 🐶, star ⭐, fish 🐟, rocket 🚀, apple 🍎).
+7. Use only the standard forms below, one idea per line, short lines. Names are one lowercase word or an emoji. For characters, prefer the ready-made pixel characters when they fit (knight wizard princess ninja robot slime dragon bat chest key potion), otherwise emoji (cat 🐱, dog 🐶, star ⭐, fish 🐟, rocket 🚀, apple 🍎).
 8. The kid may write in any language. Sayntax is always English.
 
 # The stage
@@ -73,6 +73,7 @@ Reply with ONLY a JSON object, no markdown fences:
 Characters:
   ball is a red circle at center, size 40        (shapes: circle square triangle; colors: red orange yellow green blue purple pink black white gray brown gold cyan)
   basket is a 🧺 at bottom center, size 60
+  hero is a knight at left                       (ready-made pixel characters: knight wizard princess ninja robot slime dragon bat chest key potion — usable by name, e.g. make a slime at right)
   make a ⭐ at random x, top                       (a new copy — for things that appear many times)
   remove that ⭐  |  hide ball  |  show ball
 Places: center, top, bottom, left, right, top left, bottom center, random place, random x, top, 100, 200
@@ -93,7 +94,7 @@ Worlds, adventures and RPGs:
   background is green                  (a color, or an emoji like 🌳)
   🧱 is solid                           (walls: nothing can move through them)
   👾 chases hero 2  |  🐶 follows hero 3 (keeps moving toward the nearest one)
-  hero becomes 🐉  |  hero turns red  |  hero grows 20  |  hero shrinks 10
+  hero becomes a dragon  |  hero becomes 🐉  |  hero turns red  |  hero grows 20  |  hero shrinks 10
   remove all 👾
 Sounds:
   play coin sound   (coin, jump, hit, win, lose, laser, powerup, boop)
