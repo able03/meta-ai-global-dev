@@ -1,5 +1,6 @@
 // POST /api/tidy — { code?, source } → the program with its messy lines tidied into Sayntax.
-// Cached answers are free for everyone (no access code needed); only new text reaches Muse.
+// Cached answers are free for everyone; new text reaches Muse using a shared pool of free tries,
+// an access code, or the visitor's own API key.
 
 import { cacheKey, changedLines, messyLines } from '../src/lang/tidy.js'
 import { checkGate, recordUse } from './_lib/limits.js'
@@ -37,10 +38,10 @@ export async function POST(request: Request): Promise<Response> {
   const ownKey = request.headers.get('x-model-key')?.trim() || undefined
   if (ownKey && (ownKey.length < 10 || ownKey.length > 300)) return json({ error: "That API key doesn't look right.", badKey: true }, 400)
 
-  const gate = ownKey ? { ok: true as const, remaining: Infinity } : await checkGate(body.code)
+  const gate = ownKey ? { ok: true as const, remaining: Infinity } : await checkGate(body.code || undefined)
   if (!gate.ok) return json({ error: gate.error, needsCode: gate.status === 401 }, gate.status)
   const record = (inTokens: number, outTokens: number) =>
-    ownKey ? Promise.resolve() : recordUse(body.code as string, inTokens, outTokens)
+    ownKey ? Promise.resolve() : recordUse(body.code || undefined, inTokens, outTokens)
 
   try {
     const result = await tidyWithMuse(source, ownKey)

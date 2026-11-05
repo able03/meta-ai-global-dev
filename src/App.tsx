@@ -321,7 +321,8 @@ export function App() {
         return
       }
       localCache.set(key, { steps: data.steps, assumptions: data.assumptions })
-      applyTidy(source, data, data.cached ? 'Someone wrote this before — tidied for free.' : 'Tidied by Meta Muse.')
+      const tries = !code && !ownKey && typeof data.remaining === 'number' ? ` ${data.remaining} free tries left.` : ''
+      applyTidy(source, data, data.cached ? 'Someone wrote this before — tidied for free.' : `Tidied by Meta Muse.${tries}`)
     } catch {
       setProblem("Couldn't reach the server. Check your internet and press play again.")
     } finally {
@@ -517,7 +518,7 @@ export function App() {
             Save
           </button>
           <button className={`tool key ${code || ownKey ? 'on' : ''}`} onClick={() => setShowCode((s) => !s)} aria-expanded={showCode}>
-            {ownKey ? 'Using my API key' : code ? 'AI unlocked' : 'Unlock AI'}
+            {ownKey ? 'Using my API key' : code ? 'AI unlocked' : 'Free AI tries'}
           </button>
         </nav>
       </header>
@@ -540,8 +541,8 @@ export function App() {
           </div>
           {problem && <p className="key-problem">{problem}</p>}
           <p>
-            Your own words get tidied by Meta AI. Steps from the word bank, example games, and anything someone already wrote run
-            free — no code needed.
+            Your own words get tidied by Meta AI, and everyone gets free tries to share — no code needed. Steps from the word bank,
+            example games, and anything someone already wrote never use a try. When the free tries run out, use a code below.
           </p>
           <form className="key-option" onSubmit={saveCode}>
             <h3>I have an access code</h3>
