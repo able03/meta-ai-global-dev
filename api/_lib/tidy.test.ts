@@ -26,10 +26,7 @@ beforeEach(() => {
   process.env.ACCESS_CODES = 'TEST:5'
   delete process.env.UPSTASH_REDIS_REST_URL
 })
-afterEach(() => {
-  vi.unstubAllGlobals()
-  delete process.env.FREE_TRIES
-})
+afterEach(() => vi.unstubAllGlobals())
 
 describe('prompt examples', () => {
   it('only teach Steps that Sayntax can read', () => {
@@ -72,32 +69,11 @@ describe('POST /api/tidy', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('asks for a code once the free tries are used up', async () => {
-    process.env.FREE_TRIES = '0'
+  it('asks for a code when the AI is needed', async () => {
     museReplies()
-    const r = await call({ source: 'a frog that hops when i press space and nobody said it yet' })
+    const r = await call({ source: 'a frog that hops when i press space and nobody has asked this before' })
     expect(r.status).toBe(401)
     expect(r.data.needsCode).toBe(true)
-  })
-
-  it('rejects a wrong code instead of spending a free try', async () => {
-    const fetchMock = museReplies()
-    const r = await call({ code: 'NOPE', source: 'a wrong code for a turtle that swims' })
-    expect(r.status).toBe(401)
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('gives visitors free tries without a code, then stops at the limit', async () => {
-    process.env.FREE_TRIES = '1'
-    const fetchMock = museReplies('{"steps":"🦊 is a 🦊 at center","assumptions":[]}')
-    const first = await call({ source: 'a fox in the middle for a free try' })
-    expect(first.status).toBe(200)
-    expect(first.data.remaining).toBe(0)
-
-    const second = await call({ source: 'a different owl for a second free try' })
-    expect(second.status).toBe(401)
-    expect(second.data.needsCode).toBe(true)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
   it("uses a visitor's own API key without an access code, and never counts it against limits", async () => {
